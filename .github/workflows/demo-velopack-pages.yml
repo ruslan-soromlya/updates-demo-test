@@ -105,16 +105,23 @@ jobs:
           $version      = $env:RELEASE_VERSION
           $baseUrl      = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
 
-          # Anchor everything to an absolute base so New-Item -Force works reliably
           $pagesDir     = Join-Path $PWD "artifacts\pages"
           $notesDir     = Join-Path $pagesDir "releases\$version"
           $avRelDir     = Join-Path $pagesDir "demoaval\releases"
           $manifestPath = Join-Path $pagesDir "releases\index.json"
 
-          New-Item -ItemType Directory -Path $notesDir -Force | Out-Null
-          New-Item -ItemType Directory -Path $avRelDir -Force | Out-Null
+          # Create each directory level explicitly — most reliable across all Windows PS versions
+          foreach ($dir in @(
+            (Join-Path $pagesDir "releases"),
+            $notesDir,
+            (Join-Path $pagesDir "demoaval"),
+            $avRelDir
+          )) {
+            if (-not (Test-Path $dir)) {
+              New-Item -ItemType Directory -Path $dir | Out-Null
+            }
+          }
 
-          # Now safe to copy
           Copy-Item "artifacts\release-notes\latest.md" (Join-Path $notesDir "notes.md")
           Copy-Item "artifacts\release-notes\latest.md" (Join-Path $avRelDir "latest.md")
 
