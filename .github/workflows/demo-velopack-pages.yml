@@ -1,4 +1,3 @@
-# build-demo.yml
 name: Build Demo Updates
 
 on:
@@ -103,17 +102,17 @@ jobs:
           RELEASE_NOTES: ${{ inputs.release_notes }}
           DEMO_MESSAGE: ${{ inputs.demo_message }}
         run: |
-          $version   = $env:RELEASE_VERSION
-          $baseUrl   = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-          $notesDir  = "artifacts\pages\releases\$version"
+          $version      = $env:RELEASE_VERSION
+          $baseUrl      = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          $notesDir     = "artifacts\pages\releases\$version"
           $manifestPath = "artifacts\pages\releases\index.json"
 
-          # Per-version release notes
+          # Create ALL directories first, before any Copy-Item calls
           New-Item -ItemType Directory -Path $notesDir -Force | Out-Null
-          Copy-Item "artifacts\release-notes\latest.md" "$notesDir\notes.md"
-
-          # Also keep the flat latest.md for Velopack's own update check
           New-Item -ItemType Directory -Path "artifacts\pages\demoaval\releases" -Force | Out-Null
+
+          # Now safe to copy
+          Copy-Item "artifacts\release-notes\latest.md" "$notesDir\notes.md"
           Copy-Item "artifacts\release-notes\latest.md" "artifacts\pages\demoaval\releases\latest.md"
 
           # Fetch existing manifest from Pages so we accumulate all versions
@@ -133,18 +132,16 @@ jobs:
 
           # Prepend new entry so latest is always first
           $newEntry = [ordered]@{
-            version      = $version
-            builtAt      = (Get-Date).ToUniversalTime().ToString("o")
-            runNumber    = "${{ github.run_number }}"
-            demoMessage  = $env:DEMO_MESSAGE
-            notesUrl     = "$baseUrl/releases/$version/notes.md"
-            avaloniaUrl  = "$baseUrl/demoaval/Setup.exe"
-            windowsUrl   = "$baseUrl/demowindows/Setup.exe"
+            version     = $version
+            builtAt     = (Get-Date).ToUniversalTime().ToString("o")
+            runNumber   = "${{ github.run_number }}"
+            demoMessage = $env:DEMO_MESSAGE
+            notesUrl    = "$baseUrl/releases/$version/notes.md"
+            avaloniaUrl = "$baseUrl/demoaval/Setup.exe"
+            windowsUrl  = "$baseUrl/demowindows/Setup.exe"
           }
 
           $manifest = @($newEntry) + $existing
-
-          New-Item -ItemType Directory -Path "artifacts\pages\releases" -Force | Out-Null
           $manifest | ConvertTo-Json -Depth 5 | Set-Content $manifestPath -Encoding UTF8
 
       - name: Create download page
@@ -284,10 +281,6 @@ jobs:
                 });
               }
 
-              function toggle(card) {
-                card.classList.toggle('open');
-              }
-
               async function loadReleases() {
                 const container = document.querySelector('.releases');
                 const loading   = document.getElementById('loading');
@@ -305,13 +298,13 @@ jobs:
                     card.className = 'card';
 
                     card.innerHTML = `
-                      <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                      <div class="card-header">
                         <div>
                           <div class="version-label">
-                            v${rel.version}
-                            ${i === 0 ? '<span class="badge latest">latest</span>' : ''}
+                            v` + rel.version + `
+                            ` + (i === 0 ? '<span class="badge latest">latest</span>' : '') + `
                           </div>
-                          <div class="built-at">Built ${formatDate(rel.builtAt)} · run #${rel.runNumber}</div>
+                          <div class="built-at">Built ` + formatDate(rel.builtAt) + ` &middot; run #` + rel.runNumber + `</div>
                         </div>
                         <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"
                           stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -319,37 +312,32 @@ jobs:
                         </svg>
                       </div>
                       <div class="card-body">
-                        <div class="notes" id="notes-${i}">Loading release notes…</div>
+                        <div class="notes">Loading release notes…</div>
                         <div class="downloads">
-                          <a class="dl-btn" href="${rel.avaloniaUrl}">
-                            ↓ Avalonia Installer
-                          </a>
-                          <a class="dl-btn win" href="${rel.windowsUrl}">
-                            ↓ Windows Installer
-                          </a>
+                          <a class="dl-btn" href="` + rel.avaloniaUrl + `">&#8595; Avalonia Installer</a>
+                          <a class="dl-btn win" href="` + rel.windowsUrl + `">&#8595; Windows Installer</a>
                         </div>
                       </div>`;
 
-                    // Lazy-load notes when card is first opened
                     const header = card.querySelector('.card-header');
+                    const notesEl = card.querySelector('.notes');
                     let notesLoaded = false;
+
                     header.addEventListener('click', async () => {
+                      card.classList.toggle('open');
                       if (!notesLoaded && card.classList.contains('open')) {
                         notesLoaded = true;
-                        const el = card.querySelector('.notes');
-                        el.textContent = await fetchNotes(rel.notesUrl);
+                        notesEl.textContent = await fetchNotes(rel.notesUrl);
                       }
                     });
 
                     container.appendChild(card);
 
-                    // Auto-open the latest
+                    // Auto-open and load notes for latest
                     if (i === 0) {
                       card.classList.add('open');
-                      fetchNotes(rel.notesUrl).then(t => {
-                        card.querySelector('.notes').textContent = t;
-                      });
                       notesLoaded = true;
+                      fetchNotes(rel.notesUrl).then(t => { notesEl.textContent = t; });
                     }
                   });
 
