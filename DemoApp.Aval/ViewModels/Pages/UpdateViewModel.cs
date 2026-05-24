@@ -9,7 +9,7 @@ namespace DemoApp.Aval.ViewModels.Pages
 
         [ObservableProperty]
         private string _updateSource = Environment.GetEnvironmentVariable("DEMOAPP_UPDATE_URL")
-            ?? DemoReleaseInfo.AvaloniaReleasePath;
+            ?? DemoReleaseInfo.GetUpdateSource(DemoReleaseInfo.AvaloniaReleasePath);
 
         [ObservableProperty]
         private string _status = "Ready to check for updates.";

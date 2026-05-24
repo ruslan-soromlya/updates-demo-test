@@ -1,0 +1,97 @@
+name: Build Demo Updates
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build. Leave blank to use 1.0.<run number>."
+        required: false
+        type: string
+      demo_message:
+        description: "Message shown on the app Home page after update."
+        required: true
+        default: "This update was built by GitHub Actions."
+        type: string
+      release_notes:
+        description: "Release notes shown by the app update page."
+        required: true
+        default: "This release was built in GitHub Actions and published to GitHub Pages."
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Velopack CLI
+        shell: pwsh
+        run: |
+          dotnet tool install --global vpk
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Prepare release inputs
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          $version = $env:INPUT_VERSION
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            $version = "1.0.${{ github.run_number }}"
+          }
+
+          New-Item -ItemType Directory -Path "artifacts\release-notes" -Force | Out-Null
+          Set-Content -Path "artifacts\release-notes\github-actions.md" -Value $env:RELEASE_NOTES -Encoding UTF8
+
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "AVALONIA_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demoaval" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "WINDOWS_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demowindows" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build Velopack feeds
+        shell: pwsh
+        env:
+          DEMO_MESSAGE: ${{ inputs.demo_message }}
+        run: |
+          .\scripts\Build-VelopackReleases.ps1 `
+            -Version $env:RELEASE_VERSION `
+            -DemoMessage $env:DEMO_MESSAGE `
+            -ReleaseNotes "artifacts\release-notes\github-actions.md" `
+            -AvaloniaReleaseDir "artifacts\pages\demoaval" `
+            -WindowsReleaseDir "artifacts\pages\demowindows" `
+            -AvaloniaUpdateSource $env:AVALONIA_FEED `
+            -WindowsUpdateSource $env:WINDOWS_FEED
+
+      - name: Upload packaged feeds as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-velopack-feeds-${{ env.RELEASE_VERSION }}
+          path: artifacts/pages
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/pages
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

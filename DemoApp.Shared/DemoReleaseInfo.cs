@@ -15,13 +15,23 @@ public static class DemoReleaseInfo
 
     public static string GetDemoMessage()
     {
+        return GetMetadataValue("DemoMessage", DefaultDemoMessage);
+    }
+
+    public static string GetUpdateSource(string fallback)
+    {
+        return GetMetadataValue("DemoUpdateSource", fallback);
+    }
+
+    private static string GetMetadataValue(string key, string fallback)
+    {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
         var metadata = assembly
             .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .FirstOrDefault(attribute => attribute.Key == "DemoMessage");
+            .FirstOrDefault(attribute => attribute.Key == key);
 
         return string.IsNullOrWhiteSpace(metadata?.Value)
-            ? DefaultDemoMessage
+            ? fallback
             : metadata.Value;
     }
 }

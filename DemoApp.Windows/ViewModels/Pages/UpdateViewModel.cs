@@ -10,7 +10,7 @@ namespace DemoApp.Windows.ViewModels.Pages
 
         [ObservableProperty]
         private string _updateSource = Environment.GetEnvironmentVariable("DEMOAPP_UPDATE_URL")
-            ?? DemoReleaseInfo.WindowsReleasePath;
+            ?? DemoReleaseInfo.GetUpdateSource(DemoReleaseInfo.WindowsReleasePath);
 
         [ObservableProperty]
         private string _status = "Ready to check for updates.";

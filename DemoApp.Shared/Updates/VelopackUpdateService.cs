@@ -1,4 +1,5 @@
 using Velopack;
+using Velopack.Sources;
 
 namespace DemoApp.Shared.Updates;
 
@@ -90,11 +91,27 @@ public sealed class VelopackUpdateService
                 _updateSource = updateSource;
                 _availableUpdate = null;
                 _downloadedUpdate = null;
-                _updateManager = new UpdateManager(updateSource);
+                _updateManager = new UpdateManager(CreateUpdateSource(updateSource));
             }
 
             return _updateManager;
         }
+    }
+
+    private static IUpdateSource CreateUpdateSource(string updateSource)
+    {
+        if (Uri.TryCreate(updateSource, UriKind.Absolute, out var uri)
+            && uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return new GithubSource(updateSource, accessToken: null, prerelease: false, downloader: null);
+        }
+
+        if (!Uri.TryCreate(updateSource, UriKind.Absolute, out uri) || uri.IsFile)
+        {
+            return new SimpleFileSource(new DirectoryInfo(updateSource));
+        }
+
+        return new SimpleWebSource(updateSource);
     }
 
     private static string NormalizeUpdateSource(string? updateSource)

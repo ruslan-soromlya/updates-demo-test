@@ -8,7 +8,9 @@ param(
     [string]$Version,
     [switch]$NoIncrement,
     [string]$ReleaseNotes,
-    [string]$DemoMessage
+    [string]$DemoMessage,
+    [string]$AvaloniaUpdateSource,
+    [string]$WindowsUpdateSource
 )
 
 $ErrorActionPreference = "Stop"
@@ -122,6 +124,7 @@ function Publish-And-Pack {
         [version]$ReleaseVersion,
         [Parameter(Mandatory = $true)]
         [string]$Message,
+        [string]$UpdateSource,
         [string]$IconPath
     )
 
@@ -146,7 +149,8 @@ function Publish-And-Pack {
         -p:AssemblyVersion=$fileVersion `
         -p:FileVersion=$fileVersion `
         -p:InformationalVersion=$ReleaseVersion `
-        -p:DemoMessage=$Message
+        -p:DemoMessage=$Message `
+        -p:DemoUpdateSource=$UpdateSource
 
     $packArgs = @(
         "pack",
@@ -199,6 +203,7 @@ Publish-And-Pack `
     -ReleaseDir $AvaloniaReleaseDir `
     -ReleaseVersion $releaseVersion `
     -Message $DemoMessage `
+    -UpdateSource $AvaloniaUpdateSource `
     -IconPath "DemoApp.Aval\Assets\avalonia-logo.ico"
 
 Publish-And-Pack `
@@ -210,6 +215,7 @@ Publish-And-Pack `
     -ReleaseDir $WindowsReleaseDir `
     -ReleaseVersion $releaseVersion `
     -Message $DemoMessage `
+    -UpdateSource $WindowsUpdateSource `
     -IconPath "DemoApp.Windows\wpfui-icon.ico"
 
 Save-Version $releaseVersion
