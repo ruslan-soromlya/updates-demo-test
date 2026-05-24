@@ -7,11 +7,13 @@ on:
         description: "Version to build. Leave blank to use 1.0.<run number>."
         required: false
         type: string
+
       demo_message:
         description: "Message shown on the app Home page after update."
         required: true
         default: "This update was built by GitHub Actions."
         type: string
+
       release_notes:
         description: "Release notes shown by the app update page."
         required: true
@@ -53,16 +55,32 @@ jobs:
           RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           $version = $env:INPUT_VERSION
+
           if ([string]::IsNullOrWhiteSpace($version)) {
             $version = "1.0.${{ github.run_number }}"
           }
 
           New-Item -ItemType Directory -Path "artifacts\release-notes" -Force | Out-Null
-          Set-Content -Path "artifacts\release-notes\github-actions.md" -Value $env:RELEASE_NOTES -Encoding UTF8
 
-          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "AVALONIA_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demoaval" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "WINDOWS_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demowindows" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Set-Content `
+            -Path "artifacts\release-notes\latest.md" `
+            -Value $env:RELEASE_NOTES `
+            -Encoding UTF8
+
+          "RELEASE_VERSION=$version" | Out-File `
+            -FilePath $env:GITHUB_ENV `
+            -Encoding utf8 `
+            -Append
+
+          "AVALONIA_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demoaval" | Out-File `
+            -FilePath $env:GITHUB_ENV `
+            -Encoding utf8 `
+            -Append
+
+          "WINDOWS_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demowindows" | Out-File `
+            -FilePath $env:GITHUB_ENV `
+            -Encoding utf8 `
+            -Append
 
       - name: Build Velopack feeds
         shell: pwsh
@@ -72,11 +90,87 @@ jobs:
           .\scripts\Build-VelopackReleases.ps1 `
             -Version $env:RELEASE_VERSION `
             -DemoMessage $env:DEMO_MESSAGE `
-            -ReleaseNotes "artifacts\release-notes\github-actions.md" `
+            -ReleaseNotes "artifacts\release-notes\latest.md" `
             -AvaloniaReleaseDir "artifacts\pages\demoaval" `
             -WindowsReleaseDir "artifacts\pages\demowindows" `
             -AvaloniaUpdateSource $env:AVALONIA_FEED `
             -WindowsUpdateSource $env:WINDOWS_FEED
+
+      - name: Publish release notes
+        shell: pwsh
+        run: |
+          New-Item `
+            -ItemType Directory `
+            -Path "artifacts\pages\demoaval\releases" `
+            -Force | Out-Null
+
+          Copy-Item `
+            "artifacts\release-notes\latest.md" `
+            "artifacts\pages\demoaval\releases\latest.md"
+
+      - name: Create download page
+        shell: pwsh
+        run: |
+          @"
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>DemoApp Downloads</title>
+
+            <style>
+              body {
+                margin: 0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #0f172a;
+                color: white;
+                font-family: Arial, sans-serif;
+              }
+
+              .card {
+                width: 420px;
+                background: #111827;
+                padding: 32px;
+                border-radius: 20px;
+              }
+
+              h1 {
+                margin-top: 0;
+              }
+
+              a {
+                display: block;
+                margin-top: 16px;
+                text-decoration: none;
+                background: #4f46e5;
+                color: white;
+                padding: 14px;
+                border-radius: 12px;
+                text-align: center;
+                font-weight: bold;
+              }
+            </style>
+          </head>
+
+          <body>
+            <div class="card">
+              <h1>DemoApp Downloads</h1>
+
+              <a href="./demoaval/Setup.exe">
+                Download Avalonia Installer
+              </a>
+
+              <a href="./demowindows/Setup.exe">
+                Download Windows Installer
+              </a>
+            </div>
+          </body>
+          </html>
+          "@ | Set-Content artifacts/pages/index.html
 
       - name: Upload packaged feeds as workflow artifact
         uses: actions/upload-artifact@v4
