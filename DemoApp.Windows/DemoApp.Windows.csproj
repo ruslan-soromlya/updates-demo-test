@@ -9,7 +9,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <StartupObject>DemoApp.Windows.Program</StartupObject>
+    <DemoMessage Condition="'$(DemoMessage)' == ''">This is the original demo screen.</DemoMessage>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>DemoMessage</_Parameter1>
+      <_Parameter2>$(DemoMessage)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="wpfui-icon.ico" />

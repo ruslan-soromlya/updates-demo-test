@@ -2,6 +2,8 @@
 {
     public partial class DashboardViewModel : ObservableObject
     {
+        public string DemoMessage { get; } = DemoApp.Shared.DemoReleaseInfo.GetDemoMessage();
+
         [ObservableProperty]
         private int _counter = 0;
 

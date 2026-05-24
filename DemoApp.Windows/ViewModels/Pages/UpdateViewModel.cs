@@ -1,4 +1,5 @@
 using DemoApp.Shared.Updates;
+using DemoApp.Shared;
 using Wpf.Ui.Abstractions.Controls;
 
 namespace DemoApp.Windows.ViewModels.Pages
@@ -9,7 +10,7 @@ namespace DemoApp.Windows.ViewModels.Pages
 
         [ObservableProperty]
         private string _updateSource = Environment.GetEnvironmentVariable("DEMOAPP_UPDATE_URL")
-            ?? @"C:\releases\demowindows";
+            ?? DemoReleaseInfo.WindowsReleasePath;
 
         [ObservableProperty]
         private string _status = "Ready to check for updates.";

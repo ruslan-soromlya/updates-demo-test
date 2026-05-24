@@ -1,4 +1,5 @@
 using DemoApp.Shared.Updates;
+using DemoApp.Shared;
 
 namespace DemoApp.Aval.ViewModels.Pages
 {
@@ -8,7 +9,7 @@ namespace DemoApp.Aval.ViewModels.Pages
 
         [ObservableProperty]
         private string _updateSource = Environment.GetEnvironmentVariable("DEMOAPP_UPDATE_URL")
-            ?? @"C:\releases\demoaval";
+            ?? DemoReleaseInfo.AvaloniaReleasePath;
 
         [ObservableProperty]
         private string _status = "Ready to check for updates.";

@@ -1,0 +1,88 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DemoApp.ReleaseTool.Views.MainWindow"
+        Width="860"
+        Height="680"
+        MinWidth="720"
+        MinHeight="560"
+        Title="Demo Release Control">
+    <Grid RowDefinitions="Auto,*,Auto"
+          Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Margin="28,24,28,18"
+                    Spacing="8">
+            <TextBlock Text="Demo Release Control"
+                       FontSize="28"
+                       FontWeight="SemiBold"/>
+            <TextBlock Text="Create an app update with a visible Home-page message and release notes."
+                       TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="28,0,28,20"
+                        Spacing="14">
+                <TextBlock Text="Home-page message"
+                           FontWeight="SemiBold"/>
+                <TextBox x:Name="DemoMessageBox"
+                         TextWrapping="Wrap"
+                         AcceptsReturn="True"
+                         MinHeight="84"/>
+
+                <TextBlock Text="Release notes"
+                           FontWeight="SemiBold"
+                           Margin="0,6,0,0"/>
+                <TextBox x:Name="ReleaseNotesBox"
+                         TextWrapping="Wrap"
+                         AcceptsReturn="True"
+                         MinHeight="150"/>
+
+                <Grid ColumnDefinitions="*,*"
+                      ColumnSpacing="12">
+                    <StackPanel>
+                        <TextBlock Text="Avalonia feed"
+                                   FontWeight="SemiBold"/>
+                        <TextBox x:Name="AvaloniaFeedBox"
+                                 Margin="0,6,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Windows feed"
+                                   FontWeight="SemiBold"/>
+                        <TextBox x:Name="WindowsFeedBox"
+                                 Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Text="Build log"
+                           FontWeight="SemiBold"
+                           Margin="0,6,0,0"/>
+                <TextBox x:Name="OutputBox"
+                         MinHeight="180"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="28,16">
+            <DockPanel>
+                <TextBlock x:Name="StatusText"
+                           VerticalAlignment="Center"
+                           Text="Ready"/>
+                <StackPanel DockPanel.Dock="Right"
+                            Orientation="Horizontal"
+                            Spacing="10">
+                    <Button x:Name="OpenFolderButton"
+                            Content="Open feeds"
+                            Click="OpenFolderButton_Click"/>
+                    <Button x:Name="BuildButton"
+                            Content="Build demo update"
+                            Click="BuildButton_Click"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

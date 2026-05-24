@@ -2,17 +2,28 @@
 param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
-    [string]$AvaloniaReleaseDir = "C:\releases\demoaval",
-    [string]$WindowsReleaseDir = "C:\releases\demowindows",
+    [string]$AvaloniaReleaseDir,
+    [string]$WindowsReleaseDir,
     [string]$VersionFile = ".release-version.json",
     [string]$Version,
     [switch]$NoIncrement,
-    [string]$ReleaseNotes
+    [string]$ReleaseNotes,
+    [string]$DemoMessage
 )
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$releaseRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "DemoApp\Releases"
+
+if (-not $AvaloniaReleaseDir) {
+    $AvaloniaReleaseDir = Join-Path $releaseRoot "demoaval"
+}
+
+if (-not $WindowsReleaseDir) {
+    $WindowsReleaseDir = Join-Path $releaseRoot "demowindows"
+}
+
 $versionFilePath = if ([System.IO.Path]::IsPathRooted($VersionFile)) {
     $VersionFile
 } else {
@@ -69,7 +80,12 @@ function Save-Version {
 }
 
 function New-DefaultReleaseNotes {
-    param([Parameter(Mandatory = $true)][version]$ReleaseVersion)
+    param(
+        [Parameter(Mandatory = $true)]
+        [version]$ReleaseVersion,
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
 
     $releaseNotesDir = Join-Path $repoRoot "artifacts\release-notes"
     $releaseNotesPath = Join-Path $releaseNotesDir "$ReleaseVersion.md"
@@ -79,9 +95,9 @@ function New-DefaultReleaseNotes {
     @(
         "# DemoApp $ReleaseVersion",
         "",
-        "- Added local Velopack update feeds for both demo apps.",
-        "- Avalonia checks `C:\releases\demoaval` for updates.",
-        "- Windows checks `C:\releases\demowindows` for updates.",
+        "- Demo message changed to: $Message",
+        "- Avalonia checks `$AvaloniaReleaseDir` for updates.",
+        "- Windows checks `$WindowsReleaseDir` for updates.",
         "- Release packages include installer, portable, full, and delta artifacts when possible."
     ) | Set-Content -Path $releaseNotesPath -Encoding UTF8
 
@@ -104,6 +120,8 @@ function Publish-And-Pack {
         [string]$ReleaseDir,
         [Parameter(Mandatory = $true)]
         [version]$ReleaseVersion,
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
         [string]$IconPath
     )
 
@@ -127,7 +145,8 @@ function Publish-And-Pack {
         -p:Version=$ReleaseVersion `
         -p:AssemblyVersion=$fileVersion `
         -p:FileVersion=$fileVersion `
-        -p:InformationalVersion=$ReleaseVersion
+        -p:InformationalVersion=$ReleaseVersion `
+        -p:DemoMessage=$Message
 
     $packArgs = @(
         "pack",
@@ -163,8 +182,12 @@ Assert-CommandExists "vpk" "Install Velopack CLI with: dotnet tool install -g vp
 
 $releaseVersion = Get-NextVersion
 
+if (-not $DemoMessage) {
+    $DemoMessage = "Demo release $releaseVersion is now installed."
+}
+
 if (-not $ReleaseNotes) {
-    $ReleaseNotes = New-DefaultReleaseNotes $releaseVersion
+    $ReleaseNotes = New-DefaultReleaseNotes -ReleaseVersion $releaseVersion -Message $DemoMessage
 }
 
 Publish-And-Pack `
@@ -175,6 +198,7 @@ Publish-And-Pack `
     -MainExe "DemoApp.Aval.exe" `
     -ReleaseDir $AvaloniaReleaseDir `
     -ReleaseVersion $releaseVersion `
+    -Message $DemoMessage `
     -IconPath "DemoApp.Aval\Assets\avalonia-logo.ico"
 
 Publish-And-Pack `
@@ -185,11 +209,13 @@ Publish-And-Pack `
     -MainExe "DemoApp.Windows.exe" `
     -ReleaseDir $WindowsReleaseDir `
     -ReleaseVersion $releaseVersion `
+    -Message $DemoMessage `
     -IconPath "DemoApp.Windows\wpfui-icon.ico"
 
 Save-Version $releaseVersion
 
 Write-Host ""
 Write-Host "Created release $releaseVersion"
+Write-Host "Demo message:      $DemoMessage"
 Write-Host "Avalonia releases: $AvaloniaReleaseDir"
 Write-Host "Windows releases:  $WindowsReleaseDir"

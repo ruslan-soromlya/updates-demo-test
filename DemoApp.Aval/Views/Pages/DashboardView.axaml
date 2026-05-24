@@ -3,12 +3,28 @@
              xmlns:vm="using:DemoApp.Aval.ViewModels.Pages"
              x:Class="DemoApp.Aval.Views.Pages.DashboardView"
              x:DataType="vm:DashboardViewModel">
-    <StackPanel Orientation="Horizontal"
-                VerticalAlignment="Top"
-                Spacing="12">
-        <Button Command="{Binding CounterIncrementCommand}"
-                Content="Click me!"/>
-        <TextBlock Text="{Binding Counter}"
-                   VerticalAlignment="Center"/>
+    <StackPanel VerticalAlignment="Top"
+                Spacing="18">
+        <Border Background="{DynamicResource SystemAccentColorLight2}"
+                CornerRadius="8"
+                Padding="22">
+            <StackPanel Spacing="8">
+                <TextBlock Text="Current demo message"
+                           FontSize="14"
+                           FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding DemoMessage}"
+                           FontSize="26"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal"
+                    Spacing="12">
+            <Button Command="{Binding CounterIncrementCommand}"
+                    Content="Click me!"/>
+            <TextBlock Text="{Binding Counter}"
+                       VerticalAlignment="Center"/>
+        </StackPanel>
     </StackPanel>
 </UserControl>

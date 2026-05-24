@@ -12,7 +12,7 @@
         <TextBlock Text="Update source"
                    Margin="0,4,0,0"/>
         <TextBox Text="{Binding UpdateSource}"
-                 PlaceholderText="C:\releases\demoaval"/>
+                 PlaceholderText="%LOCALAPPDATA%\DemoApp\Releases\demoaval"/>
 
         <StackPanel Orientation="Horizontal"
                     Margin="0,8,0,0"

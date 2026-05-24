@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="DemoApp.Aval/DemoApp.Aval.csproj" />
+  <Project Path="DemoApp.ReleaseTool/DemoApp.ReleaseTool.csproj" />
   <Project Path="DemoApp.Shared/DemoApp.Shared.csproj" />
   <Project Path="DemoApp.Windows/DemoApp.Windows.csproj" />
 </Solution>
