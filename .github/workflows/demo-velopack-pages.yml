@@ -1,3 +1,4 @@
+# build-demo.yml
 name: Build Demo Updates
 
 on:
@@ -96,81 +97,274 @@ jobs:
             -AvaloniaUpdateSource $env:AVALONIA_FEED `
             -WindowsUpdateSource $env:WINDOWS_FEED
 
-      - name: Publish release notes
+      - name: Publish release notes and build manifest
         shell: pwsh
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+          DEMO_MESSAGE: ${{ inputs.demo_message }}
         run: |
-          New-Item `
-            -ItemType Directory `
-            -Path "artifacts\pages\demoaval\releases" `
-            -Force | Out-Null
+          $version   = $env:RELEASE_VERSION
+          $baseUrl   = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          $notesDir  = "artifacts\pages\releases\$version"
+          $manifestPath = "artifacts\pages\releases\index.json"
 
-          Copy-Item `
-            "artifacts\release-notes\latest.md" `
-            "artifacts\pages\demoaval\releases\latest.md"
+          # Per-version release notes
+          New-Item -ItemType Directory -Path $notesDir -Force | Out-Null
+          Copy-Item "artifacts\release-notes\latest.md" "$notesDir\notes.md"
+
+          # Also keep the flat latest.md for Velopack's own update check
+          New-Item -ItemType Directory -Path "artifacts\pages\demoaval\releases" -Force | Out-Null
+          Copy-Item "artifacts\release-notes\latest.md" "artifacts\pages\demoaval\releases\latest.md"
+
+          # Fetch existing manifest from Pages so we accumulate all versions
+          $existing = @()
+          try {
+            $response = Invoke-WebRequest `
+              -Uri "$baseUrl/releases/index.json" `
+              -UseBasicParsing `
+              -ErrorAction Stop
+            $existing = $response.Content | ConvertFrom-Json
+          } catch {
+            Write-Host "No existing manifest found — starting fresh."
+          }
+
+          # Remove any entry for the same version (re-run / overwrite scenario)
+          $existing = @($existing | Where-Object { $_.version -ne $version })
+
+          # Prepend new entry so latest is always first
+          $newEntry = [ordered]@{
+            version      = $version
+            builtAt      = (Get-Date).ToUniversalTime().ToString("o")
+            runNumber    = "${{ github.run_number }}"
+            demoMessage  = $env:DEMO_MESSAGE
+            notesUrl     = "$baseUrl/releases/$version/notes.md"
+            avaloniaUrl  = "$baseUrl/demoaval/Setup.exe"
+            windowsUrl   = "$baseUrl/demowindows/Setup.exe"
+          }
+
+          $manifest = @($newEntry) + $existing
+
+          New-Item -ItemType Directory -Path "artifacts\pages\releases" -Force | Out-Null
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content $manifestPath -Encoding UTF8
 
       - name: Create download page
         shell: pwsh
         run: |
+          $baseUrl = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
           @"
           <!doctype html>
           <html lang="en">
           <head>
             <meta charset="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <title>DemoApp Downloads</title>
-
+            <title>DemoApp Releases</title>
             <style>
+              *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
               body {
-                margin: 0;
                 min-height: 100vh;
+                background: #0f172a;
+                color: #e2e8f0;
+                font-family: system-ui, Arial, sans-serif;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 48px 16px;
+              }
+
+              h1 { font-size: 1.75rem; margin-bottom: 8px; }
+              .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 0.95rem; }
+
+              .releases { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
+
+              .card {
+                background: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 16px;
+                overflow: hidden;
+              }
+
+              .card-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 16px 20px;
+                cursor: pointer;
+                gap: 12px;
+              }
+              .card-header:hover { background: #263245; }
+
+              .badge {
+                font-size: 0.7rem;
+                font-weight: 700;
+                background: #4f46e5;
+                color: white;
+                padding: 2px 8px;
+                border-radius: 999px;
+                white-space: nowrap;
+              }
+              .badge.latest { background: #059669; }
+
+              .version-label { font-weight: 700; font-size: 1.05rem; }
+              .built-at { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
+
+              .chevron { color: #94a3b8; transition: transform 0.2s; flex-shrink: 0; }
+              .card.open .chevron { transform: rotate(180deg); }
+
+              .card-body { display: none; padding: 0 20px 20px; }
+              .card.open .card-body { display: block; }
+
+              .notes {
+                background: #0f172a;
+                border-radius: 10px;
+                padding: 14px 16px;
+                font-size: 0.875rem;
+                line-height: 1.6;
+                white-space: pre-wrap;
+                color: #cbd5e1;
+                margin-bottom: 16px;
+                max-height: 220px;
+                overflow-y: auto;
+              }
+
+              .downloads { display: flex; gap: 10px; flex-wrap: wrap; }
+
+              .dl-btn {
+                flex: 1;
+                min-width: 160px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                background: #0f172a;
-                color: white;
-                font-family: Arial, sans-serif;
-              }
-
-              .card {
-                width: 420px;
-                background: #111827;
-                padding: 32px;
-                border-radius: 20px;
-              }
-
-              h1 {
-                margin-top: 0;
-              }
-
-              a {
-                display: block;
-                margin-top: 16px;
-                text-decoration: none;
+                gap: 8px;
+                padding: 11px 16px;
+                border-radius: 10px;
                 background: #4f46e5;
                 color: white;
-                padding: 14px;
-                border-radius: 12px;
-                text-align: center;
-                font-weight: bold;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 0.875rem;
+                transition: background 0.15s;
               }
+              .dl-btn:hover { background: #4338ca; }
+              .dl-btn.win { background: #0ea5e9; }
+              .dl-btn.win:hover { background: #0284c7; }
+
+              #loading, #error {
+                color: #94a3b8;
+                font-size: 0.95rem;
+                margin-top: 64px;
+              }
+              #error { color: #f87171; }
             </style>
           </head>
-
           <body>
-            <div class="card">
-              <h1>DemoApp Downloads</h1>
+            <h1>DemoApp Releases</h1>
+            <p class="subtitle">All builds published from GitHub Actions</p>
 
-              <a href="./demoaval/Setup.exe">
-                Download Avalonia Installer
-              </a>
-
-              <a href="./demowindows/Setup.exe">
-                Download Windows Installer
-              </a>
+            <div class="releases">
+              <p id="loading">Loading releases…</p>
+              <p id="error" style="display:none"></p>
             </div>
+
+            <script>
+              const BASE = '$baseUrl';
+
+              async function fetchNotes(url) {
+                try {
+                  const r = await fetch(url);
+                  return r.ok ? await r.text() : '(release notes unavailable)';
+                } catch { return '(release notes unavailable)'; }
+              }
+
+              function formatDate(iso) {
+                return new Date(iso).toLocaleString(undefined, {
+                  year: 'numeric', month: 'short', day: 'numeric',
+                  hour: '2-digit', minute: '2-digit'
+                });
+              }
+
+              function toggle(card) {
+                card.classList.toggle('open');
+              }
+
+              async function loadReleases() {
+                const container = document.querySelector('.releases');
+                const loading   = document.getElementById('loading');
+                const errorEl   = document.getElementById('error');
+
+                try {
+                  const r = await fetch(BASE + '/releases/index.json', { cache: 'no-store' });
+                  if (!r.ok) throw new Error('HTTP ' + r.status);
+                  const releases = await r.json();
+
+                  loading.remove();
+
+                  releases.forEach((rel, i) => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+
+                    card.innerHTML = `
+                      <div class="card-header" onclick="this.parentElement.classList.toggle('open')">
+                        <div>
+                          <div class="version-label">
+                            v${rel.version}
+                            ${i === 0 ? '<span class="badge latest">latest</span>' : ''}
+                          </div>
+                          <div class="built-at">Built ${formatDate(rel.builtAt)} · run #${rel.runNumber}</div>
+                        </div>
+                        <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                      </div>
+                      <div class="card-body">
+                        <div class="notes" id="notes-${i}">Loading release notes…</div>
+                        <div class="downloads">
+                          <a class="dl-btn" href="${rel.avaloniaUrl}">
+                            ↓ Avalonia Installer
+                          </a>
+                          <a class="dl-btn win" href="${rel.windowsUrl}">
+                            ↓ Windows Installer
+                          </a>
+                        </div>
+                      </div>`;
+
+                    // Lazy-load notes when card is first opened
+                    const header = card.querySelector('.card-header');
+                    let notesLoaded = false;
+                    header.addEventListener('click', async () => {
+                      if (!notesLoaded && card.classList.contains('open')) {
+                        notesLoaded = true;
+                        const el = card.querySelector('.notes');
+                        el.textContent = await fetchNotes(rel.notesUrl);
+                      }
+                    });
+
+                    container.appendChild(card);
+
+                    // Auto-open the latest
+                    if (i === 0) {
+                      card.classList.add('open');
+                      fetchNotes(rel.notesUrl).then(t => {
+                        card.querySelector('.notes').textContent = t;
+                      });
+                      notesLoaded = true;
+                    }
+                  });
+
+                } catch (e) {
+                  loading.remove();
+                  errorEl.style.display = '';
+                  errorEl.textContent = 'Could not load releases: ' + e.message;
+                }
+              }
+
+              loadReleases();
+            </script>
           </body>
           </html>
-          "@ | Set-Content artifacts/pages/index.html
+          "@ | Set-Content artifacts/pages/index.html -Encoding UTF8
 
       - name: Upload packaged feeds as workflow artifact
         uses: actions/upload-artifact@v4
