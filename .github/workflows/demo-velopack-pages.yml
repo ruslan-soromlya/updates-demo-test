@@ -107,9 +107,10 @@ jobs:
           $notesDir     = "artifacts\pages\releases\$version"
           $manifestPath = "artifacts\pages\releases\index.json"
 
-          # Create ALL directories first, before any Copy-Item calls
-          New-Item -ItemType Directory -Path $notesDir -Force | Out-Null
-          New-Item -ItemType Directory -Path "artifacts\pages\demoaval\releases" -Force | Out-Null
+          # Use CreateDirectory — creates full path recursively, no parent required
+          # This is the PowerShell equivalent of mkdir -p and never errors if path exists
+          [System.IO.Directory]::CreateDirectory($notesDir) | Out-Null
+          [System.IO.Directory]::CreateDirectory("artifacts\pages\demoaval\releases") | Out-Null
 
           # Now safe to copy
           Copy-Item "artifacts\release-notes\latest.md" "$notesDir\notes.md"
