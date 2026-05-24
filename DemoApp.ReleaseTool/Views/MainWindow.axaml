@@ -17,15 +17,19 @@
                        TextWrapping="Wrap"/>
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1">
-            <StackPanel Margin="28,0,28,20"
-                        Spacing="14">
+        <Grid Grid.Row="1"
+              Margin="28,0,28,20"
+              RowDefinitions="Auto,*"
+              RowSpacing="14">
+            <StackPanel Spacing="14">
                 <TextBlock Text="Home-page message"
                            FontWeight="SemiBold"/>
                 <TextBox x:Name="DemoMessageBox"
                          TextWrapping="Wrap"
                          AcceptsReturn="True"
-                         MinHeight="84"/>
+                         MinHeight="72"
+                         MaxHeight="96"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
 
                 <TextBlock Text="Release notes"
                            FontWeight="SemiBold"
@@ -33,7 +37,9 @@
                 <TextBox x:Name="ReleaseNotesBox"
                          TextWrapping="Wrap"
                          AcceptsReturn="True"
-                         MinHeight="150"/>
+                         MinHeight="112"
+                         MaxHeight="140"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
 
                 <Grid ColumnDefinitions="*,*"
                       ColumnSpacing="12">
@@ -51,18 +57,22 @@
                                  Margin="0,6,0,0"/>
                     </StackPanel>
                 </Grid>
+            </StackPanel>
 
+            <Grid Grid.Row="1"
+                  RowDefinitions="Auto,*">
                 <TextBlock Text="Build log"
-                           FontWeight="SemiBold"
-                           Margin="0,6,0,0"/>
+                           FontWeight="SemiBold"/>
                 <TextBox x:Name="OutputBox"
-                         MinHeight="180"
+                         Grid.Row="1"
+                         Margin="0,8,0,0"
+                         MinHeight="100"
                          IsReadOnly="True"
                          AcceptsReturn="True"
                          TextWrapping="Wrap"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"/>
-            </StackPanel>
-        </ScrollViewer>
+            </Grid>
+        </Grid>
 
         <Border Grid.Row="2"
                 BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
