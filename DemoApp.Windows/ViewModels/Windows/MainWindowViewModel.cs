@@ -33,6 +33,12 @@ namespace DemoApp.Windows.ViewModels.Windows
                 Content = "Settings",
                 Icon = new SymbolIcon { Symbol = SymbolRegular.Settings24 },
                 TargetPageType = typeof(Views.Pages.SettingsPage)
+            },
+            new NavigationViewItem()
+            {
+                Content = "Updates",
+                Icon = new SymbolIcon { Symbol = SymbolRegular.ArrowSync24 },
+                TargetPageType = typeof(Views.Pages.UpdatePage)
             }
         };
 

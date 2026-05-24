@@ -3,6 +3,7 @@ using DemoApp.Windows.ViewModels.Pages;
 using DemoApp.Windows.ViewModels.Windows;
 using DemoApp.Windows.Views.Pages;
 using DemoApp.Windows.Views.Windows;
+using DemoApp.Shared.Updates;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,8 +51,11 @@ namespace DemoApp.Windows
                 services.AddSingleton<DashboardViewModel>();
                 services.AddSingleton<DataPage>();
                 services.AddSingleton<DataViewModel>();
+                services.AddSingleton<UpdatePage>();
+                services.AddSingleton<UpdateViewModel>();
                 services.AddSingleton<SettingsPage>();
                 services.AddSingleton<SettingsViewModel>();
+                services.AddSingleton<VelopackUpdateService>();
             }).Build();
 
         /// <summary>

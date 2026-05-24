@@ -2,6 +2,8 @@ namespace DemoApp.Aval.ViewModels
 {
     public partial class MainWindowViewModel : ViewModelBase
     {
+        private readonly DemoApp.Shared.Updates.VelopackUpdateService _updateService = new();
+
         public string ApplicationTitle { get; } = "Avalonia UI - DemoApp.Aval";
 
         public IReadOnlyList<NavigationItemViewModel> MenuItems { get; }
@@ -19,7 +21,8 @@ namespace DemoApp.Aval.ViewModels
             MenuItems =
             [
                 new("Home", "Home", new Pages.DashboardViewModel(), SelectMenuItem),
-                new("Data", "Data", new Pages.DataViewModel(), SelectMenuItem)
+                new("Data", "Data", new Pages.DataViewModel(), SelectMenuItem),
+                new("Updates", "Updates", new Pages.UpdateViewModel(_updateService), SelectMenuItem)
             ];
 
             FooterMenuItems =

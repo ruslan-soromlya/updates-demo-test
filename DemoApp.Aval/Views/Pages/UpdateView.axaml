@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DemoApp.Aval.ViewModels.Pages"
+             x:Class="DemoApp.Aval.Views.Pages.UpdateView"
+             x:DataType="vm:UpdateViewModel">
+    <StackPanel MaxWidth="720"
+                HorizontalAlignment="Left"
+                Spacing="8">
+        <TextBlock Text="Updates"
+                   FontSize="20"
+                   FontWeight="SemiBold"/>
+        <TextBlock Text="Update source"
+                   Margin="0,4,0,0"/>
+        <TextBox Text="{Binding UpdateSource}"
+                 PlaceholderText="C:\releases\demoaval"/>
+
+        <StackPanel Orientation="Horizontal"
+                    Margin="0,8,0,0"
+                    Spacing="8">
+            <Button Command="{Binding CheckForUpdatesCommand}"
+                    Content="Check for updates"/>
+            <Button Command="{Binding DownloadUpdateCommand}"
+                    Content="Download update"/>
+            <Button Command="{Binding ApplyUpdateCommand}"
+                    Content="Restart and update"/>
+        </StackPanel>
+
+        <ProgressBar Height="8"
+                     Margin="0,8,0,0"
+                     Minimum="0"
+                     Maximum="100"
+                     Value="{Binding DownloadProgress}"/>
+
+        <TextBlock Text="{Binding Status}"
+                   Margin="0,8,0,0"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding CurrentVersion, StringFormat='Current version: {0}'}"/>
+        <TextBlock Text="{Binding TargetVersion, StringFormat='Available version: {0}'}"/>
+
+        <TextBlock Text="Release notes"
+                   Margin="0,12,0,0"
+                   FontSize="16"
+                   FontWeight="SemiBold"/>
+        <TextBox Text="{Binding ReleaseNotes}"
+                 MinHeight="120"
+                 AcceptsReturn="True"
+                 IsReadOnly="True"
+                 TextWrapping="Wrap"/>
+    </StackPanel>
+</UserControl>
