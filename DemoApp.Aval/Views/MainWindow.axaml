@@ -3,18 +3,83 @@
         xmlns:vm="using:DemoApp.Aval.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d"
+        d:DesignWidth="1100"
+        d:DesignHeight="650"
+        Width="1100"
+        Height="650"
+        MinWidth="760"
+        MinHeight="480"
         x:Class="DemoApp.Aval.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="DemoApp.Aval">
+        Title="{Binding ApplicationTitle}">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid ColumnDefinitions="280,*"
+          Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <Border Grid.Column="0"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,Auto,*,Auto"
+                  Margin="20,18">
+                <TextBlock Text="{Binding ApplicationTitle}"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"/>
 
+                <TextBox Grid.Row="1"
+                         Margin="0,24,0,16"
+                         PlaceholderText="Search"/>
+
+                <ItemsControl Grid.Row="2"
+                              ItemsSource="{Binding MenuItems}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NavigationItemViewModel">
+                            <Button Command="{Binding SelectCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Margin="0,2"
+                                    Padding="10,8">
+                                <TextBlock Text="{Binding Title}"
+                                           FontSize="14"/>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ItemsControl Grid.Row="3"
+                              ItemsSource="{Binding FooterMenuItems}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NavigationItemViewModel">
+                            <Button Command="{Binding SelectCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Margin="0,2"
+                                    Padding="10,8">
+                                <TextBlock Text="{Binding Title}"
+                                           FontSize="14"/>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Column="1"
+              RowDefinitions="Auto,*"
+              Margin="42,30,42,36">
+            <TextBlock Text="{Binding SelectedMenuItem.Title}"
+                       FontSize="28"
+                       FontWeight="SemiBold"/>
+
+            <ContentControl Grid.Row="1"
+                            Margin="0,28,0,0"
+                            Content="{Binding CurrentPage}"/>
+        </Grid>
+    </Grid>
 </Window>

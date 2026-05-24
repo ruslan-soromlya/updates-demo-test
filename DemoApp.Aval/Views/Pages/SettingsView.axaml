@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DemoApp.Aval.ViewModels.Pages"
+             x:Class="DemoApp.Aval.Views.Pages.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+    <StackPanel VerticalAlignment="Top"
+                Spacing="8">
+        <TextBlock Text="Personalization"
+                   FontSize="20"
+                   FontWeight="SemiBold"/>
+        <TextBlock Text="Theme"
+                   Margin="0,8,0,0"/>
+        <RadioButton Content="Light"
+                     GroupName="themeSelect"
+                     IsChecked="{Binding IsLightTheme, Mode=TwoWay}"/>
+        <RadioButton Content="Dark"
+                     GroupName="themeSelect"
+                     IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"/>
+
+        <TextBlock Text="About DemoApp.Aval"
+                   Margin="0,24,0,0"
+                   FontSize="20"
+                   FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding AppVersion}"
+                   Margin="0,4,0,0"/>
+    </StackPanel>
+</UserControl>

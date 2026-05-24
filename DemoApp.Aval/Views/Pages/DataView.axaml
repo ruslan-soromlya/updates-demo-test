@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="using:DemoApp.Aval.Models"
+             xmlns:vm="using:DemoApp.Aval.ViewModels.Pages"
+             x:Class="DemoApp.Aval.Views.Pages.DataView"
+             x:DataType="vm:DataViewModel">
+    <ScrollViewer>
+        <ItemsControl ItemsSource="{Binding Colors}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="models:DataColor">
+                    <Button Width="80"
+                            Height="80"
+                            Margin="2"
+                            Padding="0"
+                            Background="{Binding Color}"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</UserControl>

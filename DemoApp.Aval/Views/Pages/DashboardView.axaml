@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DemoApp.Aval.ViewModels.Pages"
+             x:Class="DemoApp.Aval.Views.Pages.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+    <StackPanel Orientation="Horizontal"
+                VerticalAlignment="Top"
+                Spacing="12">
+        <Button Command="{Binding CounterIncrementCommand}"
+                Content="Click me!"/>
+        <TextBlock Text="{Binding Counter}"
+                   VerticalAlignment="Center"/>
+    </StackPanel>
+</UserControl>
