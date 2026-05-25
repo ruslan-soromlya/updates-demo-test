@@ -1,143 +1,76 @@
-name: Build Demo Updates
+[CmdletBinding()]
+param(
+    [string]$Configuration = "Release",
+    [string]$Runtime = "win-x64",
 
-on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Optional version override (default: 1.0.{run_number})"
-        required: false
-        type: string
+    [Parameter(Mandatory)]
+    [string]$Version,
 
-      home_message:
-        description: "Message shown on the app Home page after update"
-        required: true
-        type: string
+    [Parameter(Mandatory)]
+    [string]$AppName,          # "Avalonia" or "Windows"
 
-      update_notes:
-        description: "Shown in the update screen when a new version is available"
-        required: true
-        type: string
+    [Parameter(Mandatory)]
+    [string]$ProjectPath,      # relative to repo root, e.g. "DemoApp.Aval\DemoApp.Aval.csproj"
 
-permissions:
-  contents: write   # needed to push the version tag
-  pages: write
-  id-token: write
+    [Parameter(Mandatory)]
+    [string]$PackId,           # e.g. "DemoApp.Aval"
 
-jobs:
-  build:
-    runs-on: windows-latest
+    [Parameter(Mandatory)]
+    [string]$MainExe,          # e.g. "DemoApp.Aval.exe"
 
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history so we can read/push tags
+    [Parameter(Mandatory)]
+    [string]$ReleaseDir,       # where vpk writes its output
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
+    [string]$HomeMessage,
+    [string]$UpdateSource      # Velopack feed URL baked into the app at build time
+)
 
-      - name: Install Velopack
-        shell: pwsh
-        run: |
-          dotnet tool install -g vpk
-          "$env:USERPROFILE\.dotnet\tools" | Out-File $env:GITHUB_PATH -Append
+$ErrorActionPreference = "Stop"
 
-      # ── VERSION ────────────────────────────────────────────────────────────
-      # Priority: manual input → latest git tag + 1 → 1.0.{run_number}
-      - name: Resolve version
-        shell: pwsh
-        run: |
-          $manual = "${{ inputs.version }}".Trim()
+$repoRoot = Split-Path -Parent $PSScriptRoot
 
-          if ($manual -ne "") {
-            $version = $manual
-            Write-Host "[VERSION] Using manual override: $version"
-          } else {
-            $latestTag = git tag --list "v*" |
-              ForEach-Object { $_.Trim() } |
-              Where-Object { $_ -match '^v(\d+)\.(\d+)\.(\d+)$' } |
-              Select-Object @{ N='Raw'; E={ $_ } },
-                            @{ N='Sort'; E={
-                                $m = [regex]::Match($_, '^v(\d+)\.(\d+)\.(\d+)$')
-                                [int]$m.Groups[1].Value * 1000000 +
-                                [int]$m.Groups[2].Value * 1000 +
-                                [int]$m.Groups[3].Value
-                            }} |
-              Sort-Object Sort -Descending |
-              Select-Object -First 1 -ExpandProperty Raw
+function Write-Section($text) {
+    Write-Host ""
+    Write-Host "==============================="
+    Write-Host $text
+    Write-Host "==============================="
+    Write-Host ""
+}
 
-            if ($latestTag) {
-              $m = [regex]::Match($latestTag, '^v(\d+)\.(\d+)\.(\d+)$')
-              $version = "$($m.Groups[1].Value).$($m.Groups[2].Value).$([int]$m.Groups[3].Value + 1)"
-              Write-Host "[VERSION] Incremented from tag ${latestTag}: $version"
-            } else {
-              $version = "1.0.${{ github.run_number }}"
-              Write-Host "[VERSION] No tags found, using run_number: $version"
-            }
-          }
+Write-Section "PACK $AppName"
 
-          "RELEASE_VERSION=$version" | Out-File $env:GITHUB_ENV -Append
+if (-not $HomeMessage) { $HomeMessage = "Demo $Version" }
 
-      # ── FEEDS ──────────────────────────────────────────────────────────────
-      - name: Set feed URLs
-        shell: pwsh
-        run: |
-          $base = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-          "AVALONIA_FEED=$base/demoaval"    | Out-File $env:GITHUB_ENV -Append
-          "WINDOWS_FEED=$base/demowindows"  | Out-File $env:GITHUB_ENV -Append
+$publishDir = Join-Path $repoRoot "artifacts\publish\$AppName"
+$project    = Join-Path $repoRoot $ProjectPath
 
-      # ── RELEASE NOTES ──────────────────────────────────────────────────────
-      - name: Write release notes file
-        shell: pwsh
-        run: |
-          New-Item artifacts\release-notes -ItemType Directory -Force | Out-Null
-          Set-Content artifacts\release-notes\latest.md @"
-          ${{ inputs.update_notes }}
-          "@ -Encoding UTF8
+Write-Host "[PUBLISH] $project -> $publishDir"
 
-      # ── BUILD ──────────────────────────────────────────────────────────────
-      - name: Build
-        shell: pwsh
-        run: |
-          .\scripts\Build-VelopackReleases.ps1 `
-            -Mode              CI `
-            -Version           $env:RELEASE_VERSION `
-            -HomeMessage       "${{ inputs.home_message }}" `
-            -ReleaseNotes      "artifacts\release-notes\latest.md" `
-            -AvaloniaUpdateSource $env:AVALONIA_FEED `
-            -WindowsUpdateSource  $env:WINDOWS_FEED
+if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
+New-Item $publishDir -ItemType Directory -Force | Out-Null
+New-Item $ReleaseDir -ItemType Directory -Force | Out-Null
 
-      # ── TAG ────────────────────────────────────────────────────────────────
-      # Push the version tag AFTER a successful build so it's only recorded
-      # when the artifacts are actually going to be deployed.
-      - name: Tag release
-        shell: pwsh
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v$env:RELEASE_VERSION"
-          git push origin "v$env:RELEASE_VERSION"
+dotnet publish $project `
+    -c $Configuration `
+    -r $Runtime `
+    --self-contained true `
+    -o $publishDir `
+    -p:Version=$Version `
+    -p:HomeMessage=$HomeMessage `
+    -p:DemoUpdateSource=$UpdateSource
 
-      # ── PAGES UI ───────────────────────────────────────────────────────────
-      - name: Copy GitHub Pages UI
-        shell: pwsh
-        run: |
-          New-Item artifacts/pages -ItemType Directory -Force | Out-Null
-          Copy-Item pages/index.html artifacts/pages/index.html -Force
-          Write-Host "[OK] index.html copied"
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed for $AppName" }
 
-      # ── DEBUG ──────────────────────────────────────────────────────────────
-      - name: Debug artifacts
-        shell: pwsh
-        run: |
-          Write-Host "=== ARTIFACTS TREE ==="
-          Get-ChildItem artifacts -Recurse -ErrorAction SilentlyContinue
+Write-Host "[VPK] Packing -> $ReleaseDir"
 
-      # ── DEPLOY ─────────────────────────────────────────────────────────────
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: artifacts/pages
+& vpk pack `
+    --packId      $PackId `
+    --packVersion $Version `
+    --packDir     $publishDir `
+    --mainExe     $MainExe `
+    --outputDir   $ReleaseDir `
+    --runtime     $Runtime
 
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+if ($LASTEXITCODE -ne 0) { throw "vpk pack failed for $AppName" }
+
+Write-Section "PACK $AppName DONE"
