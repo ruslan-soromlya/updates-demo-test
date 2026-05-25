@@ -151,12 +151,35 @@ jobs:
       - name: Install Velopack
         run: dotnet tool install -g vpk && echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
-      - name: Upload to GitHub Releases
+- name: Upload to GitHub Releases
         run: |
           vpk upload github \
             --repoUrl $REPO_URL \
             --token ${{ secrets.GITHUB_TOKEN }} \
             --outputDir releases \
+            --channel avalonia-windows \
+            --publish \
+            --merge \
+            --releaseName "v$VERSION" \
+            --tag v$VERSION \
+            --targetCommitish ${{ github.sha }}
+
+          vpk upload github \
+            --repoUrl $REPO_URL \
+            --token ${{ secrets.GITHUB_TOKEN }} \
+            --outputDir releases \
+            --channel avalonia-linux \
+            --publish \
+            --merge \
+            --releaseName "v$VERSION" \
+            --tag v$VERSION \
+            --targetCommitish ${{ github.sha }}
+
+          vpk upload github \
+            --repoUrl $REPO_URL \
+            --token ${{ secrets.GITHUB_TOKEN }} \
+            --outputDir releases \
+            --channel wpf-windows \
             --publish \
             --merge \
             --releaseName "v$VERSION" \
