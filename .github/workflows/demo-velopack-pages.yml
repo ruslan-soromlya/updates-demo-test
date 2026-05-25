@@ -169,7 +169,7 @@ jobs:
         run: |
           vpk upload github `
             --merge `
-            --repoUrl $env:REPO_URL `
+            --repoUrl $REPO_URL `
             --token ${{ secrets.GITHUB_TOKEN }} `
             --outputDir releases/avalonia-windows `
             --channel windows `
@@ -182,7 +182,7 @@ jobs:
         run: |
           vpk upload github `
             --merge `
-            --repoUrl $env:REPO_URL `
+            --repoUrl $REPO_URL `
             --token ${{ secrets.GITHUB_TOKEN }} `
             --outputDir releases/avalonia-linux `
             --channel linux `
