@@ -106,7 +106,7 @@ jobs:
             --repoUrl $env:REPO_URL `
             --token ${{ secrets.GITHUB_TOKEN }} `
             --channel ${{ matrix.app.channel }} `
-            --outputDir releases
+            --outputDir releases/${{ matrix.app.artifact }}
         continue-on-error: true
 
       - name: Publish
@@ -125,12 +125,14 @@ jobs:
       - name: Pack
         shell: pwsh
         run: |
+          $out = "releases/${{ matrix.app.artifact }}"
+
           vpk "${{ matrix.app.os }}" pack `
             --packId "${{ matrix.app.name }}" `
             --packVersion $env:VERSION `
             --packDir publish `
             --mainExe "${{ matrix.app.exe }}" `
-            --outputDir releases `
+            --outputDir $out `
             --runtime "${{ matrix.app.rid }}" `
             --channel ${{ matrix.app.channel }} `
             --releaseNotes release-notes.md
@@ -139,7 +141,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app.artifact }}
-          path: releases/
+          path: releases/${{ matrix.app.artifact }}/
 
 
   publish:
