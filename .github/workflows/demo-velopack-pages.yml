@@ -66,19 +66,19 @@ jobs:
             project: DemoApp.Aval/DemoApp.Aval.csproj
             exe: DemoApp.Aval.exe
             rid: win-x64
-            os: [win]
+            os: "[win]"
 
           - name: avalonia-linux
             project: DemoApp.Aval/DemoApp.Aval.csproj
             exe: DemoApp.Aval
             rid: linux-x64
-            os: [linux]
+            os: "[linux]"
 
           - name: wpf-windows
             project: DemoApp.Windows/DemoApp.Windows.csproj
             exe: DemoApp.Windows.exe
             rid: win-x64
-            os: [win]
+            os: "[win]"
 
     env:
       VERSION: ${{ needs.setup.outputs.version }}
