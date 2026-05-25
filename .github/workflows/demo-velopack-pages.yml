@@ -22,6 +22,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
 
       - id: v
         shell: pwsh
@@ -107,13 +109,14 @@ jobs:
       - name: Publish
         shell: pwsh
         run: |
+          $msg = "${{ inputs.home_message }}" -replace ',', '%2C'
           dotnet publish "${{ matrix.app.project }}" `
             -c Release `
             -r "${{ matrix.app.rid }}" `
             --self-contained true `
             -o publish `
             -p:Version=$env:VERSION `
-            -p:DemoMessage="${{ inputs.home_message }}" `
+            -p:DemoMessage="$msg" `
             -p:DemoUpdateSource="https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/"
 
       - name: Pack
@@ -152,28 +155,20 @@ jobs:
           merge-multiple: true
 
       - name: Install Velopack
-        run: dotnet tool install -g vpk && echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+        run: |
+          dotnet tool install -g vpk
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Upload to GitHub Releases
         run: |
-          vpk upload github \
-            --repoUrl $REPO_URL \
-            --token ${{ secrets.GITHUB_TOKEN }} \
-            --outputDir releases \
-            --channel windows \
-            --publish \
-            --merge \
-            --releaseName "v$VERSION" \
-            --tag v$VERSION \
-            --targetCommitish ${{ github.sha }}
-
-          vpk upload github \
-            --repoUrl $REPO_URL \
-            --token ${{ secrets.GITHUB_TOKEN }} \
-            --outputDir releases \
-            --channel linux \
-            --publish \
-            --merge \
-            --releaseName "v$VERSION" \
-            --tag v$VERSION \
-            --targetCommitish ${{ github.sha }}
+          for channel in windows linux; do
+            vpk upload github \
+              --repoUrl $REPO_URL \
+              --token ${{ secrets.GITHUB_TOKEN }} \
+              --outputDir releases \
+              --channel $channel \
+              --publish \
+              --releaseName "v$VERSION" \
+              --tag v$VERSION \
+              --targetCommitish ${{ github.sha }}
+          done
