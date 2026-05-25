@@ -166,6 +166,7 @@ jobs:
         run: |
           for channel in windows linux; do
             vpk upload github \
+              --merge \
               --repoUrl $REPO_URL \
               --token ${{ secrets.GITHUB_TOKEN }} \
               --outputDir releases \
@@ -174,5 +175,4 @@ jobs:
               --releaseName "v$VERSION" \
               --tag v$VERSION \
               --targetCommitish ${{ github.sha }}
-              --merge
           done
