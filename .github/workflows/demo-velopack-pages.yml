@@ -4,12 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       version:
+        description: "Release version. Leave empty for auto increment."
         required: false
         type: string
+
       home_message:
+        description: "Message displayed inside the app Home page after update."
         required: true
         type: string
+
       update_notes:
+        description: "Release notes displayed in the updater UI."
         required: true
         type: string
 
@@ -24,11 +29,14 @@ jobs:
 # ─────────────────────────────────────────────
   setup:
     runs-on: ubuntu-latest
+
     outputs:
       version: ${{ steps.v.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - id: v
         shell: pwsh
@@ -37,25 +45,34 @@ jobs:
 
           if ($manual) {
             $version = $manual
-          } else {
+          }
+          else {
+
             $tag = git tag --list "v*" |
               Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } |
               Sort-Object -Descending |
               Select-Object -First 1
 
             if ($tag) {
+
               $m = [regex]::Match($tag, '^v(\d+)\.(\d+)\.(\d+)$')
+
               $version = "$($m.Groups[1].Value).$($m.Groups[2].Value).$([int]$m.Groups[3].Value + 1)"
-            } else {
+            }
+            else {
               $version = "1.0.${{ github.run_number }}"
             }
           }
+
+          Write-Host "VERSION = $version"
 
           "version=$version" >> $env:GITHUB_OUTPUT
 
 
 # ─────────────────────────────────────────────
-  build:
+# WINDOWS BUILDS
+# ─────────────────────────────────────────────
+  build-windows:
     needs: setup
     runs-on: windows-latest
 
@@ -66,11 +83,6 @@ jobs:
             project: DemoApp.Aval/DemoApp.Aval.csproj
             exe: DemoApp.Aval.exe
             rid: win-x64
-
-          - name: avalonia-linux
-            project: DemoApp.Aval/DemoApp.Aval.csproj
-            exe: DemoApp.Aval
-            rid: linux-x64
 
           - name: wpf-windows
             project: DemoApp.Windows/DemoApp.Windows.csproj
@@ -91,19 +103,25 @@ jobs:
         shell: pwsh
         run: |
           dotnet tool install -g vpk
+
           "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
-      - name: Publish + Pack
+      - name: Publish
         shell: pwsh
         run: |
-          $out = "artifacts/${{ matrix.app.name }}"
-
           dotnet publish "${{ matrix.app.project }}" `
             -c Release `
             -r "${{ matrix.app.rid }}" `
             --self-contained true `
             -o publish `
             -p:Version=$env:VERSION
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          $out = "artifacts/${{ matrix.app.name }}"
+
+          New-Item $out -ItemType Directory -Force | Out-Null
 
           vpk pack `
             --packId "${{ matrix.app.name }}" `
@@ -113,7 +131,7 @@ jobs:
             --outputDir $out `
             --runtime "${{ matrix.app.rid }}"
 
-      - name: Upload feed
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app.name }}
@@ -121,8 +139,10 @@ jobs:
 
 
 # ─────────────────────────────────────────────
-  publish-pages:
-    needs: [setup, build]
+# LINUX BUILD
+# ─────────────────────────────────────────────
+  build-linux:
+    needs: setup
     runs-on: ubuntu-latest
 
     env:
@@ -131,19 +151,76 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all feeds
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Velopack
+        run: |
+          dotnet tool install -g vpk
+
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Publish
+        run: |
+          dotnet publish DemoApp.Aval/DemoApp.Aval.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -o publish \
+            -p:Version=$VERSION
+
+      - name: Make executable
+        run: |
+          chmod +x publish/DemoApp.Aval
+
+      - name: Pack
+        run: |
+          mkdir -p artifacts/avalonia-linux
+
+          vpk pack \
+            --packId "avalonia-linux" \
+            --packVersion "$VERSION" \
+            --packDir publish \
+            --mainExe "DemoApp.Aval" \
+            --outputDir artifacts/avalonia-linux \
+            --runtime linux-x64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: avalonia-linux
+          path: artifacts/avalonia-linux
+
+
+# ─────────────────────────────────────────────
+# PUBLISH PAGES
+# ─────────────────────────────────────────────
+  publish-pages:
+    needs:
+      - setup
+      - build-windows
+      - build-linux
+
+    runs-on: ubuntu-latest
+
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download feeds
         uses: actions/download-artifact@v4
         with:
           path: feeds
 
-      # ── Build Pages structure ──
-      - name: Prepare Pages folder
+      - name: Prepare pages
         run: |
           mkdir -p pages/feeds
 
           cp -r feeds/* pages/feeds/
 
-      # ── Simple registry (NO complex merging) ──
       - name: Build index.json
         run: |
           mkdir -p pages
@@ -153,21 +230,24 @@ jobs:
             --arg home "${{ inputs.home_message }}" \
             --arg notes "${{ inputs.update_notes }}" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{
-              version: $version,
-              homeMessage: $home,
-              updateNotes: $notes,
-              builtAt: $date,
-              feeds: {
-                avaloniaWindows: "/feeds/avalonia-windows/",
-                avaloniaLinux: "/feeds/avalonia-linux/",
-                wpfWindows: "/feeds/wpf-windows/"
+            '[
+              {
+                version: $version,
+                homeMessage: $home,
+                updateNotes: $notes,
+                builtAt: $date,
+                feeds: {
+                  avaloniaWindows: "/feeds/avalonia-windows/",
+                  avaloniaLinux: "/feeds/avalonia-linux/",
+                  wpfWindows: "/feeds/wpf-windows/"
+                }
               }
-            }' > pages/index.json
+            ]' > pages/index.json
 
-      # ── Deploy Pages ──
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: pages
 
-      - uses: actions/deploy-pages@v4
+      - name: Deploy Pages
+        uses: actions/deploy-pages@v4
