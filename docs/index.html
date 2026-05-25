@@ -464,7 +464,7 @@ footer {
     <span class="brand-product">DemoApp</span>
   </div>
   <nav class="topbar-right">
-    <a class="topbar-link" id="nav-gh" href="https://github.com/ruslan-soromlya/updates-demo-test" target="_blank">GitHub</a>
+    <a class="topbar-link" id="nav-gh" href="#" target="_blank">GitHub</a>
     <a class="topbar-link" href="https://velopack.io" target="_blank">Velopack</a>
   </nav>
 </header>
@@ -597,7 +597,7 @@ footer {
 
 <script>
 // ── CONFIG ──────────────────────────────────────────────
-const REPO = 'ruslan-soromlya/updates-demo-test'; // e.g. 'acme/demoapp'
+const REPO = 'ruslan-soromlya/updates-demo-test';
 // ────────────────────────────────────────────────────────
 
 const WIN_ICON = `<svg viewBox="0 0 16 16" fill="#0057ff" xmlns="http://www.w3.org/2000/svg"><path d="M0 2.4L6.5 1.5V7.5H0V2.4ZM7.5 1.35L16 0V7.5H7.5V1.35ZM0 8.5H6.5V14.5L0 13.6V8.5ZM7.5 8.5H16V16L7.5 14.65V8.5Z"/></svg>`;
@@ -605,9 +605,9 @@ const LNX_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/
 const DL_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const TARGETS = [
-  { label: 'Avalonia UI',  sub: 'Cross-platform · Avalonia',  platform: 'win', tag: 'Windows x64', setup: 'avalonia-win-x64-Setup.exe',          btnBg: '' },
-  { label: 'WPF',          sub: 'Windows Presentation Foundation', platform: 'win', tag: 'Windows x64', setup: 'wpf-win-x64-Setup.exe',           btnBg: '' },
-  { label: 'Avalonia UI',  sub: 'Cross-platform · Avalonia',  platform: 'lnx', tag: 'Linux x64',   setup: 'avalonia-linux-x64-Setup.AppImage',    btnBg: '#1a7a4a' },
+  { label: 'Avalonia UI',  sub: 'Cross-platform · Avalonia',       platform: 'win', tag: 'Windows x64', setup: 'avalonia-windows-Setup.exe', btnBg: '' },
+  { label: 'WPF',          sub: 'Windows Presentation Foundation', platform: 'win', tag: 'Windows x64', setup: 'wpf-windows-Setup.exe',      btnBg: '' },
+  { label: 'Avalonia UI',  sub: 'Cross-platform · Avalonia',       platform: 'lnx', tag: 'Linux x64',   setup: 'avalonia-linux.AppImage',    btnBg: '#1a7a4a' },
 ];
 
 function fmtSize(bytes) {

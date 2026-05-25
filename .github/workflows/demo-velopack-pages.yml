@@ -50,6 +50,7 @@ jobs:
         app:
           - name: avalonia
             artifact: avalonia-windows
+            channel: windows
             project: DemoApp.Aval/DemoApp.Aval.csproj
             exe: DemoApp.Aval.exe
             rid: win-x64
@@ -57,6 +58,7 @@ jobs:
 
           - name: avalonia
             artifact: avalonia-linux
+            channel: linux
             project: DemoApp.Aval/DemoApp.Aval.csproj
             exe: DemoApp.Aval
             rid: linux-x64
@@ -64,6 +66,7 @@ jobs:
 
           - name: wpf
             artifact: wpf-windows
+            channel: windows
             project: DemoApp.Windows/DemoApp.Windows.csproj
             exe: DemoApp.Windows.exe
             rid: win-x64
@@ -97,9 +100,9 @@ jobs:
           vpk download github `
             --repoUrl $env:REPO_URL `
             --token ${{ secrets.GITHUB_TOKEN }} `
-            --channel ${{ matrix.app.artifact }} `
+            --channel ${{ matrix.app.channel }} `
             --outputDir releases
-        continue-on-error: true  # no previous release on first run
+        continue-on-error: true
 
       - name: Publish
         shell: pwsh
@@ -123,7 +126,7 @@ jobs:
             --mainExe "${{ matrix.app.exe }}" `
             --outputDir releases `
             --runtime "${{ matrix.app.rid }}" `
-            --channel ${{ matrix.app.artifact }} `
+            --channel ${{ matrix.app.channel }} `
             --releaseNotes release-notes.md
 
       - name: Upload artifact
@@ -157,7 +160,7 @@ jobs:
             --repoUrl $REPO_URL \
             --token ${{ secrets.GITHUB_TOKEN }} \
             --outputDir releases \
-            --channel avalonia-windows \
+            --channel windows \
             --publish \
             --merge \
             --releaseName "v$VERSION" \
@@ -168,18 +171,7 @@ jobs:
             --repoUrl $REPO_URL \
             --token ${{ secrets.GITHUB_TOKEN }} \
             --outputDir releases \
-            --channel avalonia-linux \
-            --publish \
-            --merge \
-            --releaseName "v$VERSION" \
-            --tag v$VERSION \
-            --targetCommitish ${{ github.sha }}
-
-          vpk upload github \
-            --repoUrl $REPO_URL \
-            --token ${{ secrets.GITHUB_TOKEN }} \
-            --outputDir releases \
-            --channel wpf-windows \
+            --channel linux \
             --publish \
             --merge \
             --releaseName "v$VERSION" \
