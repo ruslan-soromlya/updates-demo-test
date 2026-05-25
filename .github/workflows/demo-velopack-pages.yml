@@ -1,11 +1,8 @@
-name: Build Demo Updates (Velopack + Pages)
+name: Build Demo Updates (Velopack + GitHub Releases)
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        required: false
-        type: string
       home_message:
         required: true
         type: string
@@ -15,13 +12,9 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
-# ─────────────────────────────────────────────
 jobs:
 
-# ─────────────────────────────────────────────
   setup:
     runs-on: ubuntu-latest
     outputs:
@@ -33,28 +26,21 @@ jobs:
       - id: v
         shell: pwsh
         run: |
-          $manual = "${{ inputs.version }}".Trim()
+          $tag = git tag --list "v*" |
+            Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } |
+            Sort-Object -Descending |
+            Select-Object -First 1
 
-          if ($manual) {
-            $version = $manual
+          if ($tag) {
+            $m = [regex]::Match($tag, '^v(\d+)\.(\d+)\.(\d+)$')
+            $version = "$($m.Groups[1].Value).$($m.Groups[2].Value).$([int]$m.Groups[3].Value + 1)"
           } else {
-            $tag = git tag --list "v*" |
-              Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } |
-              Sort-Object -Descending |
-              Select-Object -First 1
-
-            if ($tag) {
-              $m = [regex]::Match($tag, '^v(\d+)\.(\d+)\.(\d+)$')
-              $version = "$($m.Groups[1].Value).$($m.Groups[2].Value).$([int]$m.Groups[3].Value + 1)"
-            } else {
-              $version = "1.0.${{ github.run_number }}"
-            }
+            $version = "1.0.${{ github.run_number }}"
           }
 
           "version=$version" >> $env:GITHUB_OUTPUT
 
 
-# ─────────────────────────────────────────────
   build:
     needs: setup
     runs-on: windows-latest
@@ -62,19 +48,22 @@ jobs:
     strategy:
       matrix:
         app:
-          - name: avalonia-windows
+          - name: avalonia
+            artifact: avalonia-windows
             project: DemoApp.Aval/DemoApp.Aval.csproj
             exe: DemoApp.Aval.exe
             rid: win-x64
             os: "[win]"
 
-          - name: avalonia-linux
+          - name: avalonia
+            artifact: avalonia-linux
             project: DemoApp.Aval/DemoApp.Aval.csproj
             exe: DemoApp.Aval
             rid: linux-x64
             os: "[linux]"
 
-          - name: wpf-windows
+          - name: wpf
+            artifact: wpf-windows
             project: DemoApp.Windows/DemoApp.Windows.csproj
             exe: DemoApp.Windows.exe
             rid: win-x64
@@ -82,6 +71,7 @@ jobs:
 
     env:
       VERSION: ${{ needs.setup.outputs.version }}
+      REPO_URL: https://github.com/${{ github.repository }}
 
     steps:
       - uses: actions/checkout@v4
@@ -96,81 +86,77 @@ jobs:
           dotnet tool install -g vpk
           "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
-      - name: Publish + Pack
+      - name: Write release notes
         shell: pwsh
         run: |
-          $out = "artifacts/${{ matrix.app.name }}"
+          "${{ inputs.update_notes }}" | Out-File -FilePath release-notes.md -Encoding utf8
 
+      - name: Download previous release
+        shell: pwsh
+        run: |
+          vpk download github `
+            --repoUrl $env:REPO_URL `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --channel ${{ matrix.app.artifact }} `
+            --outputDir releases
+        continue-on-error: true  # no previous release on first run
+
+      - name: Publish
+        shell: pwsh
+        run: |
           dotnet publish "${{ matrix.app.project }}" `
             -c Release `
             -r "${{ matrix.app.rid }}" `
             --self-contained true `
             -o publish `
-            -p:Version=$env:VERSION
+            -p:Version=$env:VERSION `
+            -p:DemoMessage="${{ inputs.home_message }}" `
+            -p:DemoUpdateSource="https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/"
 
-          vpk "${{matrix.app.os}}" pack `
+      - name: Pack
+        shell: pwsh
+        run: |
+          vpk "${{ matrix.app.os }}" pack `
             --packId "${{ matrix.app.name }}" `
             --packVersion $env:VERSION `
             --packDir publish `
             --mainExe "${{ matrix.app.exe }}" `
-            --outputDir $out `
-            --runtime "${{ matrix.app.rid }}"
+            --outputDir releases `
+            --runtime "${{ matrix.app.rid }}" `
+            --channel ${{ matrix.app.artifact }} `
+            --releaseNotes release-notes.md
 
-      - name: Upload feed
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.app.name }}
-          path: artifacts/${{ matrix.app.name }}
+          name: ${{ matrix.app.artifact }}
+          path: releases/
 
 
-# ─────────────────────────────────────────────
-  publish-pages:
+  publish:
     needs: [setup, build]
     runs-on: ubuntu-latest
 
     env:
       VERSION: ${{ needs.setup.outputs.version }}
+      REPO_URL: https://github.com/${{ github.repository }}
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all feeds
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: feeds
+          path: releases
+          merge-multiple: true
 
-      # ── Build Pages structure ──
-      - name: Prepare Pages folder
+      - name: Install Velopack
+        run: dotnet tool install -g vpk && echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Upload to GitHub Releases
         run: |
-          mkdir -p pages/feeds
-
-          cp -r feeds/* pages/feeds/
-
-      # ── Simple registry (NO complex merging) ──
-      - name: Build index.json
-        run: |
-          mkdir -p pages
-
-          jq -n \
-            --arg version "$VERSION" \
-            --arg home "${{ inputs.home_message }}" \
-            --arg notes "${{ inputs.update_notes }}" \
-            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{
-              version: $version,
-              homeMessage: $home,
-              updateNotes: $notes,
-              builtAt: $date,
-              feeds: {
-                avaloniaWindows: "/feeds/avalonia-windows/",
-                avaloniaLinux: "/feeds/avalonia-linux/",
-                wpfWindows: "/feeds/wpf-windows/"
-              }
-            }' > pages/index.json
-
-      # ── Deploy Pages ──
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: pages
-
-      - uses: actions/deploy-pages@v4
+          vpk upload github \
+            --repoUrl $REPO_URL \
+            --token ${{ secrets.GITHUB_TOKEN }} \
+            --inputDir releases \
+            --publish \
+            --releaseName "v$VERSION" \
+            --tag v$VERSION
