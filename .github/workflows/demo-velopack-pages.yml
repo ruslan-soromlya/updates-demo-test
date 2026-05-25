@@ -108,7 +108,7 @@ jobs:
             -o publish `
             -p:Version=$env:VERSION
 
-          vpk {{matrix.app.os}} pack `
+          vpk "${{matrix.app.os}}" pack `
             --packId "${{ matrix.app.name }}" `
             --packVersion $env:VERSION `
             --packDir publish `
