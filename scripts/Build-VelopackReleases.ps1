@@ -62,13 +62,12 @@ function Save-Version($v) {
 }
 
 # -----------------------------
-# MODE PATH RESOLUTION
+# PATH RESOLUTION
 # -----------------------------
 function Resolve-Paths {
     param($Mode)
 
     if ($Mode -eq "CI") {
-
         Write-Host "[MODE] CI"
 
         $pages = Join-Path $repoRoot "artifacts\pages"
@@ -92,7 +91,7 @@ function Resolve-Paths {
 }
 
 # -----------------------------
-# PACK FUNCTION
+# PACK
 # -----------------------------
 function Publish-And-Pack {
     param(
@@ -119,8 +118,8 @@ function Publish-And-Pack {
     New-Item $ReleaseDir -ItemType Directory -Force | Out-Null
 
     dotnet publish $project `
-        -c Release `
-        -r win-x64 `
+        -c $Configuration `
+        -r $Runtime `
         --self-contained true `
         -o $publishDir `
         -p:Version=$Version `
@@ -133,7 +132,50 @@ function Publish-And-Pack {
         --packDir $publishDir `
         --mainExe $MainExe `
         --outputDir $ReleaseDir `
-        --runtime win-x64
+        --runtime $Runtime
+}
+
+
+function Write-Manifest {
+    param(
+        [string]$PagesDir,
+        [version]$Version,
+        [string]$DemoMessage,
+        [string]$BaseUrl
+    )
+
+    Write-Host "[MANIFEST] Generating index.json..."
+
+    $releaseDir = Join-Path $PagesDir "releases"
+    $manifestPath = Join-Path $releaseDir "index.json"
+
+    New-Item $releaseDir -ItemType Directory -Force | Out-Null
+
+    $existing = @()
+
+    if (Test-Path $manifestPath) {
+        try {
+            $existing = Get-Content $manifestPath -Raw | ConvertFrom-Json
+            Write-Host "[MANIFEST] Existing entries: $($existing.Count)"
+        } catch {
+            Write-Host "[WARN] Could not parse existing index.json - resetting"
+        }
+    }
+
+    $entry = [ordered]@{
+        version     = $Version.ToString()
+        demoMessage = $DemoMessage
+        builtAt     = (Get-Date).ToUniversalTime().ToString("o")
+        notesUrl    = "$BaseUrl/releases/$Version/notes.md"
+        avaloniaUrl = "$BaseUrl/demoaval/Setup.exe"
+        windowsUrl  = "$BaseUrl/demowindows/Setup.exe"
+    }
+
+    $manifest = @($entry) + @($existing)
+
+    $manifest | ConvertTo-Json -Depth 10 | Set-Content $manifestPath -Encoding UTF8
+
+    Write-Host "[MANIFEST] index.json written -> $manifestPath"
 }
 
 # -----------------------------
@@ -148,8 +190,17 @@ if (-not $DemoMessage) {
     $DemoMessage = "Demo $version"
 }
 
+# FIXED BASE URL
+$repo = $env:GITHUB_REPOSITORY
+if ($repo) {
+    $baseUrl = "https://$($repo.Split('/')[0]).github.io/$($repo.Split('/')[1])"
+} else {
+    $baseUrl = "http://localhost"
+}
+
 Write-Host "[VERSION] $version"
 Write-Host "[MODE] $Mode"
+Write-Host "[BASE_URL] $baseUrl"
 Write-Host "[AVALONIA] $($paths.Avalonia)"
 Write-Host "[WINDOWS] $($paths.Windows)"
 
@@ -162,11 +213,12 @@ New-Item $notesDir -ItemType Directory -Force | Out-Null
 $notesFile = Join-Path $notesDir "latest.md"
 
 if (-not $ReleaseNotes) {
-    $ReleaseNotes = $notesFile
     @"
 # Release $version
 - $DemoMessage
 "@ | Set-Content $notesFile -Encoding UTF8
+
+    $ReleaseNotes = $notesFile
 }
 
 # -----------------------------
@@ -192,7 +244,21 @@ Publish-And-Pack `
     -Message $DemoMessage `
     -UpdateSource $WindowsUpdateSource
 
+# -----------------------------
+# SAVE VERSION
+# -----------------------------
 Save-Version $version
+
+# -----------------------------
+# GENERATE MANIFEST (CI ONLY)
+# -----------------------------
+if ($Mode -eq "CI") {
+    Write-Manifest `
+        -PagesDir (Join-Path $repoRoot "artifacts\pages") `
+        -Version $version `
+        -DemoMessage $DemoMessage `
+        -BaseUrl $baseUrl
+}
 
 Write-Section "BUILD DONE"
 Write-Host "Version: $version"
