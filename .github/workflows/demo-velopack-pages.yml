@@ -151,7 +151,7 @@ jobs:
       - name: Install Velopack
         run: dotnet tool install -g vpk && echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
-- name: Upload to GitHub Releases
+      - name: Upload to GitHub Releases
         run: |
           vpk upload github \
             --repoUrl $REPO_URL \
