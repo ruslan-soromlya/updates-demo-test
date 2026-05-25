@@ -57,6 +57,17 @@ jobs:
             -AvaloniaUpdateSource $env:AVALONIA_FEED `
             -WindowsUpdateSource $env:WINDOWS_FEED
 
+      - name: Copy GitHub Pages UI
+        shell: pwsh
+        run: |
+          Write-Host "[STEP] Copying index.html to artifacts/pages"
+
+          New-Item artifacts/pages -ItemType Directory -Force | Out-Null
+
+          Copy-Item pages/index.html artifacts/pages/index.html -Force
+
+          Write-Host "[OK] index.html copied"
+
       - name: Upload Pages
         uses: actions/upload-pages-artifact@v3
         with:
