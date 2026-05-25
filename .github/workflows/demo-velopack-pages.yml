@@ -51,6 +51,7 @@ jobs:
       matrix:
         app:
           - name: avalonia
+            displayName: Avalonia Windows
             artifact: avalonia-windows
             channel: windows
             project: DemoApp.Aval/DemoApp.Aval.csproj
@@ -59,6 +60,7 @@ jobs:
             os: "[win]"
 
           - name: avalonia
+            displayName: Avalonia Linux
             artifact: avalonia-linux
             channel: linux
             project: DemoApp.Aval/DemoApp.Aval.csproj
@@ -67,6 +69,7 @@ jobs:
             os: "[linux]"
 
           - name: wpf
+            displayName: WPF
             artifact: wpf-windows
             channel: windows
             project: DemoApp.Windows/DemoApp.Windows.csproj
@@ -171,4 +174,5 @@ jobs:
               --releaseName "v$VERSION" \
               --tag v$VERSION \
               --targetCommitish ${{ github.sha }}
+              --merge
           done
