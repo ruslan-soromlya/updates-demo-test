@@ -231,39 +231,39 @@ jobs:
 
       - name: Upload Avalonia Windows
         run: |
-          vpk upload github `
-            --merge `
-            --repoUrl $REPO_URL `
-            --token ${{ secrets.GITHUB_TOKEN }} `
-            --outputDir releases/avalonia-windows `
-            --channel windows `
-            --publish `
-            --releaseName "v$VERSION" `
-            --tag v$VERSION `
-            --targetCommitish ${{ github.sha }}
+          vpk upload github \
+            --merge \
+            --repoUrl "$REPO_URL" \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --outputDir "releases/avalonia-windows" \
+            --channel "windows" \
+            --publish \
+            --releaseName "v$VERSION" \
+            --tag "v$VERSION" \
+            --targetCommitish "${{ github.sha }}"
 
       - name: Upload Avalonia Linux
         run: |
-          vpk upload github `
-            --merge `
-            --repoUrl $REPO_URL `
-            --token ${{ secrets.GITHUB_TOKEN }} `
-            --outputDir releases/avalonia-linux `
-            --channel linux `
-            --publish `
-            --releaseName "v$VERSION" `
-            --tag v$VERSION `
-            --targetCommitish ${{ github.sha }}
+          vpk upload github \
+            --merge \
+            --repoUrl "$REPO_URL" \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --outputDir "releases/avalonia-linux" \
+            --channel "linux" \
+            --publish \
+            --releaseName "v$VERSION" \
+            --tag "v$VERSION" \
+            --targetCommitish "${{ github.sha }}"
 
-      - name: Upload WPF
+      - name: Upload WPF Windows
         run: |
-          vpk upload github `
-            --merge `
-            --repoUrl $REPO_URL `
-            --token ${{ secrets.GITHUB_TOKEN }} `
-            --outputDir releases/wpf-windows `
-            --channel windows `
-            --publish `
-            --releaseName "v$VERSION" `
-            --tag v$VERSION `
-            --targetCommitish ${{ github.sha }}
+          vpk upload github \
+            --merge \
+            --repoUrl "$REPO_URL" \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --outputDir "releases/wpf-windows" \
+            --channel "windows" \
+            --publish \
+            --releaseName "v$VERSION" \
+            --tag "v$VERSION" \
+            --targetCommitish "${{ github.sha }}"
