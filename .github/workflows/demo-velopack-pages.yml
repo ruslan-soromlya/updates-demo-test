@@ -46,6 +46,7 @@ jobs:
   build:
     needs: setup
     runs-on: windows-latest
+    name: ${{ matrix.app.displayName }}
 
     strategy:
       matrix:
@@ -164,17 +165,41 @@ jobs:
           dotnet tool install -g vpk
           echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
-      - name: Upload to GitHub Releases
+      - name: Upload Avalonia Windows
         run: |
-          for channel in windows linux; do
-            vpk upload github \
-              --merge \
-              --repoUrl $REPO_URL \
-              --token ${{ secrets.GITHUB_TOKEN }} \
-              --outputDir releases \
-              --channel $channel \
-              --publish \
-              --releaseName "v$VERSION" \
-              --tag v$VERSION \
-              --targetCommitish ${{ github.sha }}
-          done
+          vpk upload github `
+            --merge `
+            --repoUrl $env:REPO_URL `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --outputDir releases/avalonia-windows `
+            --channel windows `
+            --publish `
+            --releaseName "v$VERSION" `
+            --tag v$VERSION `
+            --targetCommitish ${{ github.sha }}
+
+      - name: Upload Avalonia Linux
+        run: |
+          vpk upload github `
+            --merge `
+            --repoUrl $env:REPO_URL `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --outputDir releases/avalonia-linux `
+            --channel linux `
+            --publish `
+            --releaseName "v$VERSION" `
+            --tag v$VERSION `
+            --targetCommitish ${{ github.sha }}
+
+      - name: Upload WPF Windows
+        run: |
+          vpk upload github `
+            --merge `
+            --repoUrl $env:REPO_URL `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --outputDir releases/wpf-windows `
+            --channel windows `
+            --publish `
+            --releaseName "v$VERSION" `
+            --tag v$VERSION `
+            --targetCommitish ${{ github.sha }}
