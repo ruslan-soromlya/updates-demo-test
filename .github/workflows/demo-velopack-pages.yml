@@ -4,12 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       version:
+        description: "Optional version override (default: 1.0.{run_number})"
         required: false
         type: string
-      demo_message:
+
+      home_message:
+        description: "Message shown on the app Home page after update"
         required: true
         type: string
-      release_notes:
+
+      update_notes:
+        description: "Shown in the update screen when a new version is available"
         required: true
         type: string
 
@@ -35,43 +40,81 @@ jobs:
           dotnet tool install -g vpk
           "$env:USERPROFILE\.dotnet\tools" | Out-File $env:GITHUB_PATH -Append
 
+      # -----------------------------
+      # VERSION RESOLUTION
+      # -----------------------------
+      - name: Resolve version
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${{ inputs.version }}")) {
+            $version = "1.0.${{ github.run_number }}"
+          }
+          else {
+            $version = "${{ inputs.version }}"
+          }
+
+          Write-Host "[VERSION] $version"
+          echo "RELEASE_VERSION=$version" | Out-File $env:GITHUB_ENV -Append
+
+      # -----------------------------
+      # PREPARE RELEASE NOTES
+      # -----------------------------
       - name: Prepare
         shell: pwsh
         run: |
           New-Item artifacts\release-notes -ItemType Directory -Force | Out-Null
 
-          Set-Content artifacts\release-notes\latest.md "${{ inputs.release_notes }}"
+          Set-Content artifacts\release-notes\latest.md "${{ inputs.update_notes }}"
 
-          "RELEASE_VERSION=${{ inputs.version }}" | Out-File $env:GITHUB_ENV -Append
           "AVALONIA_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demoaval" | Out-File $env:GITHUB_ENV -Append
           "WINDOWS_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demowindows" | Out-File $env:GITHUB_ENV -Append
 
+      # -----------------------------
+      # BUILD
+      # -----------------------------
       - name: Build
         shell: pwsh
         run: |
           .\scripts\Build-VelopackReleases.ps1 `
             -Mode CI `
             -Version $env:RELEASE_VERSION `
-            -DemoMessage "${{ inputs.demo_message }}" `
+            -DemoMessage "${{ inputs.home_message }}" `
             -ReleaseNotes "artifacts\release-notes\latest.md" `
             -AvaloniaUpdateSource $env:AVALONIA_FEED `
             -WindowsUpdateSource $env:WINDOWS_FEED
 
+      # -----------------------------
+      # COPY UI
+      # -----------------------------
       - name: Copy GitHub Pages UI
         shell: pwsh
         run: |
-          Write-Host "[STEP] Copying index.html to artifacts/pages"
+          Write-Host "[STEP] Copying index.html"
 
           New-Item artifacts/pages -ItemType Directory -Force | Out-Null
-
           Copy-Item pages/index.html artifacts/pages/index.html -Force
 
           Write-Host "[OK] index.html copied"
 
+      # -----------------------------
+      # DEBUG (optional but useful)
+      # -----------------------------
+      - name: Debug artifacts
+        shell: pwsh
+        run: |
+          Write-Host "=== ARTIFACTS TREE ==="
+          Get-ChildItem artifacts -Recurse -ErrorAction SilentlyContinue
+
+      # -----------------------------
+      # UPLOAD PAGES
+      # -----------------------------
       - name: Upload Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: artifacts/pages
 
+      # -----------------------------
+      # DEPLOY
+      # -----------------------------
       - name: Deploy
         uses: actions/deploy-pages@v4
