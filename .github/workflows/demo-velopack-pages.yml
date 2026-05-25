@@ -1,310 +1,173 @@
-name: Build Demo Updates
+name: Build Demo Updates (Velopack + Pages)
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Optional version override (default: auto-increment from last tag)"
         required: false
         type: string
-
       home_message:
-        description: "Message shown on the app Home page after update"
         required: true
         type: string
-
       update_notes:
-        description: "Shown in the update screen when a new version is available"
         required: true
         type: string
 
 permissions:
-  contents: write   # push tags + create GitHub Releases
+  contents: write
   pages: write
   id-token: write
 
-# ── SHARED SETUP ─────────────────────────────────────────────────────────────
-# Version resolution and release notes run once, outputs are passed to both
-# build jobs via job outputs.
-
+# ─────────────────────────────────────────────
 jobs:
+
+# ─────────────────────────────────────────────
   setup:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.v.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Resolve version
-        id: version
+      - id: v
         shell: pwsh
         run: |
           $manual = "${{ inputs.version }}".Trim()
 
-          if ($manual -ne "") {
+          if ($manual) {
             $version = $manual
-            Write-Host "[VERSION] Using manual override: $version"
           } else {
-            $latestTag = git tag --list "v*" |
-              ForEach-Object { $_.Trim() } |
-              Where-Object { $_ -match '^v(\d+)\.(\d+)\.(\d+)$' } |
-              Select-Object @{ N='Raw'; E={ $_ } },
-                            @{ N='Sort'; E={
-                                $m = [regex]::Match($_, '^v(\d+)\.(\d+)\.(\d+)$')
-                                [int]$m.Groups[1].Value * 1000000 +
-                                [int]$m.Groups[2].Value * 1000 +
-                                [int]$m.Groups[3].Value
-                            }} |
-              Sort-Object Sort -Descending |
-              Select-Object -First 1 -ExpandProperty Raw
+            $tag = git tag --list "v*" |
+              Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } |
+              Sort-Object -Descending |
+              Select-Object -First 1
 
-            if ($latestTag) {
-              $m = [regex]::Match($latestTag, '^v(\d+)\.(\d+)\.(\d+)$')
+            if ($tag) {
+              $m = [regex]::Match($tag, '^v(\d+)\.(\d+)\.(\d+)$')
               $version = "$($m.Groups[1].Value).$($m.Groups[2].Value).$([int]$m.Groups[3].Value + 1)"
-              Write-Host "[VERSION] Incremented from tag ${latestTag}: $version"
             } else {
               $version = "1.0.${{ github.run_number }}"
-              Write-Host "[VERSION] No tags found, using run_number: $version"
             }
           }
 
-          Write-Host "[VERSION] Final: $version"
-          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append
+          "version=$version" >> $env:GITHUB_OUTPUT
 
-  # ── BUILD AVALONIA ──────────────────────────────────────────────────────────
-  build-avalonia:
+
+# ─────────────────────────────────────────────
+  build:
     needs: setup
     runs-on: windows-latest
-    env:
-      VERSION:      ${{ needs.setup.outputs.version }}
-      RELEASE_DIR:  artifacts\releases\demoaval
-      FEED_URL:     https://github.com/${{ github.repository }}/releases/download/v${{ needs.setup.outputs.version }}
 
-    steps:
-      - uses: actions/checkout@v4
+    strategy:
+      matrix:
+        app:
+          - name: avalonia-windows
+            project: DemoApp.Aval/DemoApp.Aval.csproj
+            exe: DemoApp.Aval.exe
+            rid: win-x64
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
+          - name: avalonia-linux
+            project: DemoApp.Aval/DemoApp.Aval.csproj
+            exe: DemoApp.Aval
+            rid: linux-x64
 
-      - name: Install Velopack
-        shell: pwsh
-        run: |
-          dotnet tool install -g vpk
-          "$env:USERPROFILE\.dotnet\tools" | Out-File $env:GITHUB_PATH -Append
+          - name: wpf-windows
+            project: DemoApp.Windows/DemoApp.Windows.csproj
+            exe: DemoApp.Windows.exe
+            rid: win-x64
 
-      - name: Pack
-        shell: pwsh
-        run: |
-          .\scripts\Build-VelopackReleases.ps1 `
-            -Version    $env:VERSION `
-            -AppName    "Avalonia" `
-            -ProjectPath "DemoApp.Aval\DemoApp.Aval.csproj" `
-            -PackId     "DemoApp.Aval" `
-            -MainExe    "DemoApp.Aval.exe" `
-            -ReleaseDir $env:RELEASE_DIR `
-            -HomeMessage "${{ inputs.home_message }}" `
-            -UpdateSource $env:FEED_URL
-
-      - name: Upload packed artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-avalonia
-          path: ${{ env.RELEASE_DIR }}
-          retention-days: 1
-
-  # ── BUILD AVALONIA LINUX ────────────────────────────────────────────────────
-  build-avalonia-linux:
-    needs: setup
-    runs-on: ubuntu-latest
-    env:
-      VERSION:      ${{ needs.setup.outputs.version }}
-      RELEASE_DIR:  artifacts/releases/demoaval-linux
-      FEED_URL:     https://github.com/${{ github.repository }}/releases/download/v${{ needs.setup.outputs.version }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Install Velopack
-        run: |
-          dotnet tool install -g vpk
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Pack
-        run: |
-          mkdir -p "$RELEASE_DIR"
-          PUBLISH_DIR="artifacts/publish/AvaloniaLinux"
-          mkdir -p "$PUBLISH_DIR"
-
-          dotnet publish DemoApp.Aval/DemoApp.Aval.csproj \
-            -c Release \
-            -r linux-x64 \
-            --self-contained true \
-            -o "$PUBLISH_DIR" \
-            -p:Version=$VERSION \
-            -p:HomeMessage="${{ inputs.home_message }}" \
-            -p:DemoUpdateSource="$FEED_URL"
-
-          vpk pack \
-            --packId      DemoApp.Aval \
-            --packVersion $VERSION \
-            --packDir     "$PUBLISH_DIR" \
-            --mainExe     DemoApp.Aval \
-            --outputDir   "$RELEASE_DIR" \
-            --runtime     linux-x64
-
-      - name: Upload packed artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-avalonia-linux
-          path: ${{ env.RELEASE_DIR }}
-          retention-days: 1
-
-  # ── BUILD WPF ───────────────────────────────────────────────────────────────
-  build-wpf:
-    needs: setup
-    runs-on: windows-latest
-    env:
-      VERSION:      ${{ needs.setup.outputs.version }}
-      RELEASE_DIR:  artifacts\releases\demowindows
-      FEED_URL:     https://github.com/${{ github.repository }}/releases/download/v${{ needs.setup.outputs.version }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Install Velopack
-        shell: pwsh
-        run: |
-          dotnet tool install -g vpk
-          "$env:USERPROFILE\.dotnet\tools" | Out-File $env:GITHUB_PATH -Append
-
-      - name: Pack
-        shell: pwsh
-        run: |
-          .\scripts\Build-VelopackReleases.ps1 `
-            -Version    $env:VERSION `
-            -AppName    "Windows" `
-            -ProjectPath "DemoApp.Windows\DemoApp.Windows.csproj" `
-            -PackId     "DemoApp.Windows" `
-            -MainExe    "DemoApp.Windows.exe" `
-            -ReleaseDir $env:RELEASE_DIR `
-            -HomeMessage "${{ inputs.home_message }}" `
-            -UpdateSource $env:FEED_URL
-
-      - name: Upload packed artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-wpf
-          path: ${{ env.RELEASE_DIR }}
-          retention-days: 1
-
-  # ── PUBLISH ─────────────────────────────────────────────────────────────────
-  # Runs after both builds succeed. Creates the GitHub Release, uploads all
-  # binaries, then updates index.json on Pages.
-  publish:
-    needs: [setup, build-avalonia, build-avalonia-linux, build-wpf]
-    runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.setup.outputs.version }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
         with:
-          fetch-depth: 0
+          dotnet-version: 10.0.x
 
-      # Download both sets of packed files
-      - uses: actions/download-artifact@v4
+      - name: Install Velopack
+        shell: pwsh
+        run: |
+          dotnet tool install -g vpk
+          "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
+
+      - name: Publish + Pack
+        shell: pwsh
+        run: |
+          $out = "artifacts/${{ matrix.app.name }}"
+
+          dotnet publish "${{ matrix.app.project }}" `
+            -c Release `
+            -r "${{ matrix.app.rid }}" `
+            --self-contained true `
+            -o publish `
+            -p:Version=$env:VERSION
+
+          vpk pack `
+            --packId "${{ matrix.app.name }}" `
+            --packVersion $env:VERSION `
+            --packDir publish `
+            --mainExe "${{ matrix.app.exe }}" `
+            --outputDir $out `
+            --runtime "${{ matrix.app.rid }}"
+
+      - name: Upload feed
+        uses: actions/upload-artifact@v4
         with:
-          name: release-avalonia
-          path: artifacts/releases/demoaval
+          name: ${{ matrix.app.name }}
+          path: artifacts/${{ matrix.app.name }}
 
-      - uses: actions/download-artifact@v4
+
+# ─────────────────────────────────────────────
+  publish-pages:
+    needs: [setup, build]
+    runs-on: ubuntu-latest
+
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all feeds
+        uses: actions/download-artifact@v4
         with:
-          name: release-avalonia-linux
-          path: artifacts/releases/demoaval-linux
+          path: feeds
 
-      - uses: actions/download-artifact@v4
+      # ── Build Pages structure ──
+      - name: Prepare Pages folder
+        run: |
+          mkdir -p pages/feeds
+
+          cp -r feeds/* pages/feeds/
+
+      # ── Simple registry (NO complex merging) ──
+      - name: Build index.json
+        run: |
+          mkdir -p pages
+
+          jq -n \
+            --arg version "$VERSION" \
+            --arg home "${{ inputs.home_message }}" \
+            --arg notes "${{ inputs.update_notes }}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              version: $version,
+              homeMessage: $home,
+              updateNotes: $notes,
+              builtAt: $date,
+              feeds: {
+                avaloniaWindows: "/feeds/avalonia-windows/",
+                avaloniaLinux: "/feeds/avalonia-linux/",
+                wpfWindows: "/feeds/wpf-windows/"
+              }
+            }' > pages/index.json
+
+      # ── Deploy Pages ──
+      - uses: actions/upload-pages-artifact@v3
         with:
-          name: release-wpf
-          path: artifacts/releases/demowindows
+          path: pages
 
-      # Tag first so the GitHub Release has something to point at
-      - name: Push version tag
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
-
-      # Write release notes
-      - name: Write release notes
-        run: |
-          mkdir -p artifacts/release-notes
-          printf '%s' "${{ inputs.update_notes }}" > artifacts/release-notes/latest.md
-
-      # Create the GitHub Release and upload all files from both apps.
-      # gh release create handles everything — tag, title, notes, assets.
-      - name: Create GitHub Release
-        run: |
-          gh release create "v$VERSION" \
-            --title "v$VERSION" \
-            --notes-file artifacts/release-notes/latest.md \
-            artifacts/releases/demoaval/* \
-            artifacts/releases/demoaval-linux/* \
-            artifacts/releases/demowindows/*
-
-      # Build index.json — prepend new entry to existing array from Pages
-      - name: Update index.json
-        run: |
-          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-          GH_DL="https://github.com/${{ github.repository }}/releases/download/v$VERSION"
-
-          NEW_ENTRY=$(jq -n \
-            --arg version     "$VERSION" \
-            --arg homeMessage "${{ inputs.home_message }}" \
-            --arg builtAt     "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-            --arg notesUrl    "$BASE_URL/releases/$VERSION/notes.md" \
-            --arg avaloniaUrl      "$GH_DL/DemoApp.Aval-win-Setup.exe" \
-            --arg avaloniaLinuxUrl "$GH_DL/DemoApp.Aval-linux-Setup.AppImage" \
-            --arg windowsUrl       "$GH_DL/DemoApp.Windows-win-Setup.exe" \
-            '{version: $version, homeMessage: $homeMessage, builtAt: $builtAt, notesUrl: $notesUrl, avaloniaUrl: $avaloniaUrl, avaloniaLinuxUrl: $avaloniaLinuxUrl, windowsUrl: $windowsUrl}')
-
-          # Try to fetch existing index.json from the live Pages site
-          EXISTING=$(curl -sf "$BASE_URL/releases/index.json" || echo "[]")
-
-          # Prepend new entry and write out
-          mkdir -p artifacts/pages/releases/"$VERSION"
-          echo "$NEW_ENTRY" | jq -s ". + $EXISTING" > artifacts/pages/releases/index.json
-
-          # Copy release notes so notesUrl resolves
-          cp artifacts/release-notes/latest.md artifacts/pages/releases/"$VERSION"/notes.md
-
-          echo "[INDEX] Written:"
-          cat artifacts/pages/releases/index.json
-
-      - name: Copy Pages UI
-        run: |
-          cp pages/index.html artifacts/pages/index.html
-
-      - name: Debug artifacts
-        run: find artifacts/pages -type f
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: artifacts/pages
-
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
+      - uses: actions/deploy-pages@v4
