@@ -34,19 +34,74 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      # ------------------------------------------------------------
+      # CHECKOUT
+      # ------------------------------------------------------------
+
       - name: Check out repository
         uses: actions/checkout@v4
+
+      # ------------------------------------------------------------
+      # .NET
+      # ------------------------------------------------------------
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
 
+      # ------------------------------------------------------------
+      # DEBUG ENVIRONMENT
+      # ------------------------------------------------------------
+
+      - name: Debug runner environment
+        shell: pwsh
+        run: |
+          Write-Host "==============================="
+          Write-Host "RUNNER DEBUG"
+          Write-Host "==============================="
+
+          Write-Host ""
+          Write-Host "[PWD]"
+          Write-Host $PWD
+
+          Write-Host ""
+          Write-Host "[FILES]"
+          Get-ChildItem -Force
+
+          Write-Host ""
+          Write-Host "[GITHUB WORKSPACE]"
+          Write-Host $env:GITHUB_WORKSPACE
+
+          Write-Host ""
+          Write-Host "[POWERSHELL VERSION]"
+          $PSVersionTable
+
+      # ------------------------------------------------------------
+      # VELOPACK
+      # ------------------------------------------------------------
+
       - name: Install Velopack CLI
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+
+          Write-Host "Installing Velopack CLI..."
+
           dotnet tool install --global vpk
-          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          "$env:USERPROFILE\.dotnet\tools" |
+            Out-File `
+              -FilePath $env:GITHUB_PATH `
+              -Encoding utf8 `
+              -Append
+
+          Write-Host "Installed tools:"
+          dotnet tool list --global
+
+      # ------------------------------------------------------------
+      # PREPARE RELEASE INPUTS
+      # ------------------------------------------------------------
 
       - name: Prepare release inputs
         shell: pwsh
@@ -54,39 +109,102 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
+          $ErrorActionPreference = "Stop"
+
+          Write-Host "==============================="
+          Write-Host "PREPARE RELEASE INPUTS"
+          Write-Host "==============================="
+
           $version = $env:INPUT_VERSION
 
           if ([string]::IsNullOrWhiteSpace($version)) {
             $version = "1.0.${{ github.run_number }}"
           }
 
-          New-Item -ItemType Directory -Path "artifacts\release-notes" -Force | Out-Null
+          Write-Host "[INFO] Version = $version"
+
+          $notesDir = "artifacts\release-notes"
+
+          Write-Host "[INFO] Creating release notes directory..."
+          New-Item `
+            -ItemType Directory `
+            -Path $notesDir `
+            -Force | Out-Null
+
+          if (-not (Test-Path $notesDir)) {
+            throw "Failed to create release-notes directory"
+          }
+
+          $notesFile = Join-Path $notesDir "latest.md"
+
+          Write-Host "[INFO] Writing release notes..."
+          Write-Host "[FILE] $notesFile"
 
           Set-Content `
-            -Path "artifacts\release-notes\latest.md" `
+            -Path $notesFile `
             -Value $env:RELEASE_NOTES `
             -Encoding UTF8
 
-          "RELEASE_VERSION=$version" | Out-File `
-            -FilePath $env:GITHUB_ENV `
-            -Encoding utf8 `
-            -Append
+          if (-not (Test-Path $notesFile)) {
+            throw "Release notes file was not created"
+          }
 
-          "AVALONIA_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demoaval" | Out-File `
-            -FilePath $env:GITHUB_ENV `
-            -Encoding utf8 `
-            -Append
+          Write-Host "[OK] Release notes created"
 
-          "WINDOWS_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demowindows" | Out-File `
-            -FilePath $env:GITHUB_ENV `
-            -Encoding utf8 `
-            -Append
+          Write-Host ""
+          Write-Host "[CONTENT]"
+          Get-Content $notesFile
+
+          "RELEASE_VERSION=$version" |
+            Out-File `
+              -FilePath $env:GITHUB_ENV `
+              -Encoding utf8 `
+              -Append
+
+          "AVALONIA_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demoaval" |
+            Out-File `
+              -FilePath $env:GITHUB_ENV `
+              -Encoding utf8 `
+              -Append
+
+          "WINDOWS_FEED=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/demowindows" |
+            Out-File `
+              -FilePath $env:GITHUB_ENV `
+              -Encoding utf8 `
+              -Append
+
+          Write-Host ""
+          Write-Host "[GITHUB ENV WRITTEN]"
+          Get-Content $env:GITHUB_ENV
+
+      # ------------------------------------------------------------
+      # BUILD VELOPACK RELEASES
+      # ------------------------------------------------------------
 
       - name: Build Velopack feeds
         shell: pwsh
         env:
           DEMO_MESSAGE: ${{ inputs.demo_message }}
         run: |
+          $ErrorActionPreference = "Stop"
+
+          Write-Host "==============================="
+          Write-Host "BUILD VELOPACK RELEASES"
+          Write-Host "==============================="
+
+          Write-Host "[INFO] RELEASE_VERSION = $env:RELEASE_VERSION"
+          Write-Host "[INFO] AVALONIA_FEED = $env:AVALONIA_FEED"
+          Write-Host "[INFO] WINDOWS_FEED  = $env:WINDOWS_FEED"
+
+          Write-Host ""
+          Write-Host "[CHECK] Build script exists?"
+
+          if (-not (Test-Path ".\scripts\Build-VelopackReleases.ps1")) {
+            throw "Build-VelopackReleases.ps1 not found"
+          }
+
+          Write-Host "[OK] Build script found"
+
           .\scripts\Build-VelopackReleases.ps1 `
             -Version $env:RELEASE_VERSION `
             -DemoMessage $env:DEMO_MESSAGE `
@@ -96,279 +214,360 @@ jobs:
             -AvaloniaUpdateSource $env:AVALONIA_FEED `
             -WindowsUpdateSource $env:WINDOWS_FEED
 
+          Write-Host ""
+          Write-Host "[CHECK] artifacts/pages exists?"
+
+          if (-not (Test-Path "artifacts\pages")) {
+            throw "artifacts/pages was not created"
+          }
+
+          Write-Host "[OK] artifacts/pages exists"
+
+          Write-Host ""
+          Write-Host "[TREE]"
+          Get-ChildItem `
+            -Path "artifacts\pages" `
+            -Recurse `
+            -Force |
+            Select-Object FullName, Length
+
+      # ------------------------------------------------------------
+      # PUBLISH MANIFEST
+      # ------------------------------------------------------------
+
       - name: Publish release notes and build manifest
         shell: pwsh
         env:
           RELEASE_NOTES: ${{ inputs.release_notes }}
           DEMO_MESSAGE: ${{ inputs.demo_message }}
         run: |
-          $version      = $env:RELEASE_VERSION
-          $baseUrl      = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          $ErrorActionPreference = "Stop"
 
-          $pagesDir     = Join-Path $PWD "artifacts\pages"
-          $notesDir     = Join-Path $pagesDir "releases\$version"
-          $avRelDir     = Join-Path $pagesDir "demoaval\releases"
-          $manifestPath = Join-Path $pagesDir "releases\index.json"
+          Write-Host ""
+          Write-Host "==============================="
+          Write-Host "START RELEASE MANIFEST STEP"
+          Write-Host "==============================="
+          Write-Host ""
 
-          # Create each directory level explicitly — most reliable across all Windows PS versions
-          foreach ($dir in @(
-            (Join-Path $pagesDir "releases"),
-            $notesDir,
-            (Join-Path $pagesDir "demoaval"),
-            $avRelDir
-          )) {
-            if (-not (Test-Path $dir)) {
-              New-Item -ItemType Directory -Path $dir | Out-Null
-            }
-          }
-
-          Copy-Item "artifacts\release-notes\latest.md" (Join-Path $notesDir "notes.md")
-          Copy-Item "artifacts\release-notes\latest.md" (Join-Path $avRelDir "latest.md")
-
-          # Fetch existing manifest from Pages so we accumulate all versions
-          $existing = @()
           try {
-            $response = Invoke-WebRequest `
-              -Uri "$baseUrl/releases/index.json" `
-              -UseBasicParsing `
-              -ErrorAction Stop
-            $existing = $response.Content | ConvertFrom-Json
-          } catch {
-            Write-Host "No existing manifest found — starting fresh."
+
+            $version = $env:RELEASE_VERSION
+            $baseUrl = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
+            Write-Host "[INFO] RELEASE_VERSION = $version"
+            Write-Host "[INFO] BASE_URL        = $baseUrl"
+
+            $pagesDir     = Join-Path $PWD "artifacts\pages"
+            $notesDir     = Join-Path $pagesDir "releases\$version"
+            $avRelDir     = Join-Path $pagesDir "demoaval\releases"
+            $manifestPath = Join-Path $pagesDir "releases\index.json"
+
+            Write-Host ""
+            Write-Host "[PATHS]"
+            Write-Host "pagesDir     = $pagesDir"
+            Write-Host "notesDir     = $notesDir"
+            Write-Host "avRelDir     = $avRelDir"
+            Write-Host "manifestPath = $manifestPath"
+
+            $sourceNotes = Join-Path $PWD "artifacts\release-notes\latest.md"
+
+            Write-Host ""
+            Write-Host "[CHECK] Verifying source release notes..."
+
+            if (-not (Test-Path $sourceNotes)) {
+              throw "Source release notes file does not exist: $sourceNotes"
+            }
+
+            Write-Host "[OK] Found release notes file"
+
+            Write-Host ""
+            Write-Host "[DEBUG] Release notes contents:"
+            Get-Content $sourceNotes
+
+            Write-Host ""
+            Write-Host "[STEP] Creating directories..."
+
+            foreach ($dir in @(
+              $pagesDir,
+              (Join-Path $pagesDir "releases"),
+              $notesDir,
+              (Join-Path $pagesDir "demoaval"),
+              $avRelDir
+            )) {
+
+              Write-Host "[DIR] Ensuring directory exists: $dir"
+
+              New-Item `
+                -ItemType Directory `
+                -Path $dir `
+                -Force | Out-Null
+
+              if (-not (Test-Path $dir)) {
+                throw "Directory was NOT created successfully: $dir"
+              }
+
+              Write-Host "[OK] Directory exists"
+            }
+
+            Write-Host ""
+            Write-Host "[DEBUG] artifacts/pages tree:"
+
+            Get-ChildItem `
+              -Path $pagesDir `
+              -Recurse `
+              -Force |
+              Select-Object FullName
+
+            $notesTarget = Join-Path $notesDir "notes.md"
+            $latestTarget = Join-Path $avRelDir "latest.md"
+
+            Write-Host ""
+            Write-Host "[STEP] Copying release notes..."
+
+            Write-Host "[COPY]"
+            Write-Host "FROM: $sourceNotes"
+            Write-Host "TO:   $notesTarget"
+
+            Copy-Item `
+              $sourceNotes `
+              $notesTarget `
+              -Force
+
+            Write-Host "[OK] notes.md copied"
+
+            Write-Host ""
+            Write-Host "[COPY]"
+            Write-Host "FROM: $sourceNotes"
+            Write-Host "TO:   $latestTarget"
+
+            Copy-Item `
+              $sourceNotes `
+              $latestTarget `
+              -Force
+
+            Write-Host "[OK] latest.md copied"
+
+            Write-Host ""
+            Write-Host "[CHECK] Verifying copied files..."
+
+            foreach ($file in @($notesTarget, $latestTarget)) {
+
+              Write-Host "[CHECK] $file"
+
+              if (-not (Test-Path $file)) {
+                throw "Copied file missing: $file"
+              }
+
+              Write-Host "[OK] File exists"
+
+              Write-Host "[CONTENT]"
+              Get-Content $file
+            }
+
+            Write-Host ""
+            Write-Host "[STEP] Fetching existing manifest..."
+
+            $existing = @()
+
+            try {
+
+              $manifestUrl = "$baseUrl/releases/index.json"
+
+              Write-Host "[HTTP GET] $manifestUrl"
+
+              $response = Invoke-WebRequest `
+                -Uri $manifestUrl `
+                -UseBasicParsing `
+                -ErrorAction Stop
+
+              Write-Host "[HTTP STATUS] $($response.StatusCode)"
+
+              $existing = $response.Content | ConvertFrom-Json
+
+              Write-Host "[OK] Existing manifest downloaded"
+
+            } catch {
+
+              Write-Host "[INFO] Existing manifest not found."
+              Write-Host "[INFO] Starting fresh manifest."
+
+              $existing = @()
+            }
+
+            Write-Host ""
+            Write-Host "[STEP] Removing duplicate version entries..."
+
+            $existing = @(
+              $existing |
+              Where-Object { $_.version -ne $version }
+            )
+
+            Write-Host "[INFO] Remaining entries: $($existing.Count)"
+
+            Write-Host ""
+            Write-Host "[STEP] Building new manifest entry..."
+
+            $newEntry = [ordered]@{
+              version     = $version
+              builtAt     = (Get-Date).ToUniversalTime().ToString("o")
+              runNumber   = "${{ github.run_number }}"
+              demoMessage = $env:DEMO_MESSAGE
+              notesUrl    = "$baseUrl/releases/$version/notes.md"
+              avaloniaUrl = "$baseUrl/demoaval/Setup.exe"
+              windowsUrl  = "$baseUrl/demowindows/Setup.exe"
+            }
+
+            $manifest = @($newEntry) + $existing
+
+            Write-Host "[DEBUG] Manifest JSON:"
+            $manifest | ConvertTo-Json -Depth 5
+
+            Write-Host ""
+            Write-Host "[STEP] Writing manifest file..."
+
+            $manifest |
+              ConvertTo-Json -Depth 5 |
+              Set-Content `
+                $manifestPath `
+                -Encoding UTF8
+
+            if (-not (Test-Path $manifestPath)) {
+              throw "Manifest file was not created."
+            }
+
+            Write-Host "[OK] Manifest file created"
+
+            Write-Host ""
+            Write-Host "[DEBUG] Manifest contents:"
+            Get-Content $manifestPath
+
+            Write-Host ""
+            Write-Host "[FINAL TREE]"
+
+            Get-ChildItem `
+              -Path $pagesDir `
+              -Recurse `
+              -Force |
+              Select-Object FullName, Length
+
+            Write-Host ""
+            Write-Host "==============================="
+            Write-Host "STEP COMPLETED SUCCESSFULLY"
+            Write-Host "==============================="
+            Write-Host ""
+
+          }
+          catch {
+
+            Write-Host ""
+            Write-Host "==============================="
+            Write-Host "STEP FAILED"
+            Write-Host "==============================="
+            Write-Host ""
+
+            Write-Host "[ERROR MESSAGE]"
+            Write-Host $_
+
+            Write-Host ""
+            Write-Host "[SCRIPT STACK TRACE]"
+            Write-Host $_.ScriptStackTrace
+
+            Write-Host ""
+            Write-Host "[DIRECTORY SNAPSHOT]"
+
+            if (Test-Path "artifacts") {
+              Get-ChildItem `
+                -Path "artifacts" `
+                -Recurse `
+                -Force |
+                Select-Object FullName, Length
+            }
+            else {
+              Write-Host "artifacts directory does not exist"
+            }
+
+            throw
           }
 
-          # Remove any entry for the same version (re-run / overwrite scenario)
-          $existing = @($existing | Where-Object { $_.version -ne $version })
-
-          # Prepend new entry so latest is always first
-          $newEntry = [ordered]@{
-            version     = $version
-            builtAt     = (Get-Date).ToUniversalTime().ToString("o")
-            runNumber   = "${{ github.run_number }}"
-            demoMessage = $env:DEMO_MESSAGE
-            notesUrl    = "$baseUrl/releases/$version/notes.md"
-            avaloniaUrl = "$baseUrl/demoaval/Setup.exe"
-            windowsUrl  = "$baseUrl/demowindows/Setup.exe"
-          }
-
-          $manifest = @($newEntry) + $existing
-          $manifest | ConvertTo-Json -Depth 5 | Set-Content $manifestPath -Encoding UTF8
+      # ------------------------------------------------------------
+      # CREATE DOWNLOAD PAGE
+      # ------------------------------------------------------------
 
       - name: Create download page
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+
+          Write-Host "==============================="
+          Write-Host "CREATE DOWNLOAD PAGE"
+          Write-Host "==============================="
+
           $baseUrl = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
+          Write-Host "[INFO] BASE URL = $baseUrl"
+
+          if (-not (Test-Path "artifacts/pages")) {
+            throw "artifacts/pages directory missing"
+          }
 
           @"
           <!doctype html>
-          <html lang="en">
+          <html>
           <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <title>DemoApp Releases</title>
-            <style>
-              *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-              body {
-                min-height: 100vh;
-                background: #0f172a;
-                color: #e2e8f0;
-                font-family: system-ui, Arial, sans-serif;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                padding: 48px 16px;
-              }
-
-              h1 { font-size: 1.75rem; margin-bottom: 8px; }
-              .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 0.95rem; }
-
-              .releases { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
-
-              .card {
-                background: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 16px;
-                overflow: hidden;
-              }
-
-              .card-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 16px 20px;
-                cursor: pointer;
-                gap: 12px;
-              }
-              .card-header:hover { background: #263245; }
-
-              .badge {
-                font-size: 0.7rem;
-                font-weight: 700;
-                background: #4f46e5;
-                color: white;
-                padding: 2px 8px;
-                border-radius: 999px;
-                white-space: nowrap;
-              }
-              .badge.latest { background: #059669; }
-
-              .version-label { font-weight: 700; font-size: 1.05rem; }
-              .built-at { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
-
-              .chevron { color: #94a3b8; transition: transform 0.2s; flex-shrink: 0; }
-              .card.open .chevron { transform: rotate(180deg); }
-
-              .card-body { display: none; padding: 0 20px 20px; }
-              .card.open .card-body { display: block; }
-
-              .notes {
-                background: #0f172a;
-                border-radius: 10px;
-                padding: 14px 16px;
-                font-size: 0.875rem;
-                line-height: 1.6;
-                white-space: pre-wrap;
-                color: #cbd5e1;
-                margin-bottom: 16px;
-                max-height: 220px;
-                overflow-y: auto;
-              }
-
-              .downloads { display: flex; gap: 10px; flex-wrap: wrap; }
-
-              .dl-btn {
-                flex: 1;
-                min-width: 160px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                padding: 11px 16px;
-                border-radius: 10px;
-                background: #4f46e5;
-                color: white;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 0.875rem;
-                transition: background 0.15s;
-              }
-              .dl-btn:hover { background: #4338ca; }
-              .dl-btn.win { background: #0ea5e9; }
-              .dl-btn.win:hover { background: #0284c7; }
-
-              #loading, #error {
-                color: #94a3b8;
-                font-size: 0.95rem;
-                margin-top: 64px;
-              }
-              #error { color: #f87171; }
-            </style>
+            <meta charset="utf-8">
+            <title>Demo Releases</title>
           </head>
           <body>
-            <h1>DemoApp Releases</h1>
-            <p class="subtitle">All builds published from GitHub Actions</p>
-
-            <div class="releases">
-              <p id="loading">Loading releases…</p>
-              <p id="error" style="display:none"></p>
-            </div>
-
+            <h1>Demo Releases</h1>
             <script>
-              const BASE = '$baseUrl';
-
-              async function fetchNotes(url) {
-                try {
-                  const r = await fetch(url);
-                  return r.ok ? await r.text() : '(release notes unavailable)';
-                } catch { return '(release notes unavailable)'; }
-              }
-
-              function formatDate(iso) {
-                return new Date(iso).toLocaleString(undefined, {
-                  year: 'numeric', month: 'short', day: 'numeric',
-                  hour: '2-digit', minute: '2-digit'
-                });
-              }
-
-              async function loadReleases() {
-                const container = document.querySelector('.releases');
-                const loading   = document.getElementById('loading');
-                const errorEl   = document.getElementById('error');
-
-                try {
-                  const r = await fetch(BASE + '/releases/index.json', { cache: 'no-store' });
-                  if (!r.ok) throw new Error('HTTP ' + r.status);
-                  const releases = await r.json();
-
-                  loading.remove();
-
-                  releases.forEach((rel, i) => {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-
-                    card.innerHTML = `
-                      <div class="card-header">
-                        <div>
-                          <div class="version-label">
-                            v` + rel.version + `
-                            ` + (i === 0 ? '<span class="badge latest">latest</span>' : '') + `
-                          </div>
-                          <div class="built-at">Built ` + formatDate(rel.builtAt) + ` &middot; run #` + rel.runNumber + `</div>
-                        </div>
-                        <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="6 9 12 15 18 9"/>
-                        </svg>
-                      </div>
-                      <div class="card-body">
-                        <div class="notes">Loading release notes…</div>
-                        <div class="downloads">
-                          <a class="dl-btn" href="` + rel.avaloniaUrl + `">&#8595; Avalonia Installer</a>
-                          <a class="dl-btn win" href="` + rel.windowsUrl + `">&#8595; Windows Installer</a>
-                        </div>
-                      </div>`;
-
-                    const header = card.querySelector('.card-header');
-                    const notesEl = card.querySelector('.notes');
-                    let notesLoaded = false;
-
-                    header.addEventListener('click', async () => {
-                      card.classList.toggle('open');
-                      if (!notesLoaded && card.classList.contains('open')) {
-                        notesLoaded = true;
-                        notesEl.textContent = await fetchNotes(rel.notesUrl);
-                      }
-                    });
-
-                    container.appendChild(card);
-
-                    // Auto-open and load notes for latest
-                    if (i === 0) {
-                      card.classList.add('open');
-                      notesLoaded = true;
-                      fetchNotes(rel.notesUrl).then(t => { notesEl.textContent = t; });
-                    }
-                  });
-
-                } catch (e) {
-                  loading.remove();
-                  errorEl.style.display = '';
-                  errorEl.textContent = 'Could not load releases: ' + e.message;
-                }
-              }
-
-              loadReleases();
+              fetch('$baseUrl/releases/index.json')
+                .then(r => r.json())
+                .then(console.log);
             </script>
           </body>
           </html>
           "@ | Set-Content artifacts/pages/index.html -Encoding UTF8
+
+          if (-not (Test-Path "artifacts/pages/index.html")) {
+            throw "index.html was not created"
+          }
+
+          Write-Host "[OK] index.html created"
+
+      # ------------------------------------------------------------
+      # DEBUG FINAL OUTPUT
+      # ------------------------------------------------------------
+
+      - name: Debug final artifacts
+        shell: pwsh
+        run: |
+          Write-Host "==============================="
+          Write-Host "FINAL ARTIFACT TREE"
+          Write-Host "==============================="
+
+          if (-not (Test-Path "artifacts/pages")) {
+            throw "artifacts/pages missing before upload"
+          }
+
+          Get-ChildItem `
+            -Path "artifacts/pages" `
+            -Recurse `
+            -Force |
+            Select-Object FullName, Length
+
+      # ------------------------------------------------------------
+      # ARTIFACT
+      # ------------------------------------------------------------
 
       - name: Upload packaged feeds as workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: demo-velopack-feeds-${{ env.RELEASE_VERSION }}
           path: artifacts/pages
+
+      # ------------------------------------------------------------
+      # PAGES
+      # ------------------------------------------------------------
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
