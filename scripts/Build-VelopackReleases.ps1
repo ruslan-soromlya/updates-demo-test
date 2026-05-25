@@ -1,227 +1,198 @@
 [CmdletBinding()]
 param(
+    [ValidateSet("CI", "Local")]
+    [string]$Mode = "CI",
+
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
-    [string]$AvaloniaReleaseDir,
-    [string]$WindowsReleaseDir,
+
     [string]$VersionFile = ".release-version.json",
     [string]$Version,
     [switch]$NoIncrement,
+
     [string]$ReleaseNotes,
     [string]$DemoMessage,
+
     [string]$AvaloniaUpdateSource,
     [string]$WindowsUpdateSource
 )
 
 $ErrorActionPreference = "Stop"
 
+# -----------------------------
+# ROOT
+# -----------------------------
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$releaseRoot = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "DemoApp\Releases"
 
-if (-not $AvaloniaReleaseDir) {
-    $AvaloniaReleaseDir = Join-Path $releaseRoot "demoaval"
+function Write-Section($text) {
+    Write-Host ""
+    Write-Host "==============================="
+    Write-Host $text
+    Write-Host "==============================="
+    Write-Host ""
 }
 
-if (-not $WindowsReleaseDir) {
-    $WindowsReleaseDir = Join-Path $releaseRoot "demowindows"
-}
-
-$versionFilePath = if ([System.IO.Path]::IsPathRooted($VersionFile)) {
-    $VersionFile
-} else {
-    Join-Path $repoRoot $VersionFile
-}
-
-function Assert-CommandExists {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
-        [Parameter(Mandatory = $true)]
-        [string]$InstallHint
-    )
-
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-        throw "'$Name' was not found. $InstallHint"
-    }
-}
-
-function Convert-ToFileVersion {
-    param([Parameter(Mandatory = $true)][version]$SemanticVersion)
-
-    return "{0}.{1}.{2}.0" -f $SemanticVersion.Major, $SemanticVersion.Minor, $SemanticVersion.Build
-}
-
+# -----------------------------
+# VERSION
+# -----------------------------
 function Get-NextVersion {
-    if ($Version) {
-        return [version]$Version
-    }
+    if ($Version) { return [version]$Version }
 
-    if (-not (Test-Path $versionFilePath)) {
+    $path = Join-Path $repoRoot $VersionFile
+
+    if (-not (Test-Path $path)) {
         return [version]"1.0.0"
     }
 
-    $state = Get-Content $versionFilePath -Raw | ConvertFrom-Json
-    $lastVersion = [version]$state.LastVersion
+    $state = Get-Content $path -Raw | ConvertFrom-Json
+    $last = [version]$state.LastVersion
 
-    if ($NoIncrement) {
-        return $lastVersion
+    if ($NoIncrement) { return $last }
+
+    return [version]::new($last.Major, $last.Minor, $last.Build + 1)
+}
+
+function Save-Version($v) {
+    $path = Join-Path $repoRoot $VersionFile
+
+    @{
+        LastVersion = $v.ToString()
+        UpdatedAt   = (Get-Date).ToUniversalTime().ToString("o")
+    } | ConvertTo-Json | Set-Content $path -Encoding UTF8
+}
+
+# -----------------------------
+# MODE PATH RESOLUTION
+# -----------------------------
+function Resolve-Paths {
+    param($Mode)
+
+    if ($Mode -eq "CI") {
+
+        Write-Host "[MODE] CI"
+
+        $pages = Join-Path $repoRoot "artifacts\pages"
+
+        return @{
+            PagesDir = $pages
+            Avalonia = Join-Path $pages "demoaval\releases"
+            Windows  = Join-Path $pages "demowindows\releases"
+        }
     }
 
-    return [version]::new($lastVersion.Major, $lastVersion.Minor, $lastVersion.Build + 1)
-}
+    Write-Host "[MODE] Local"
 
-function Save-Version {
-    param([Parameter(Mandatory = $true)][version]$ReleaseVersion)
+    $root = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "DemoApp\Releases"
 
-    $state = [ordered]@{
-        LastVersion = $ReleaseVersion.ToString()
-        UpdatedAt = (Get-Date).ToUniversalTime().ToString("o")
+    return @{
+        PagesDir = $null
+        Avalonia = Join-Path $root "demoaval"
+        Windows  = Join-Path $root "demowindows"
     }
-
-    $state | ConvertTo-Json | Set-Content -Path $versionFilePath -Encoding UTF8
 }
 
-function New-DefaultReleaseNotes {
-    param(
-        [Parameter(Mandatory = $true)]
-        [version]$ReleaseVersion,
-        [Parameter(Mandatory = $true)]
-        [string]$Message
-    )
-
-    $releaseNotesDir = Join-Path $repoRoot "artifacts\release-notes"
-    $releaseNotesPath = Join-Path $releaseNotesDir "$ReleaseVersion.md"
-
-    New-Item -ItemType Directory -Path $releaseNotesDir -Force | Out-Null
-
-    @(
-        "# DemoApp $ReleaseVersion",
-        "",
-        "- Demo message changed to: $Message",
-        "- Avalonia checks `$AvaloniaReleaseDir` for updates.",
-        "- Windows checks `$WindowsReleaseDir` for updates.",
-        "- Release packages include installer, portable, full, and delta artifacts when possible."
-    ) | Set-Content -Path $releaseNotesPath -Encoding UTF8
-
-    return $releaseNotesPath
-}
-
+# -----------------------------
+# PACK FUNCTION
+# -----------------------------
 function Publish-And-Pack {
     param(
-        [Parameter(Mandatory = $true)]
         [string]$Name,
-        [Parameter(Mandatory = $true)]
         [string]$ProjectPath,
-        [Parameter(Mandatory = $true)]
         [string]$PackId,
-        [Parameter(Mandatory = $true)]
-        [string]$PackTitle,
-        [Parameter(Mandatory = $true)]
         [string]$MainExe,
-        [Parameter(Mandatory = $true)]
         [string]$ReleaseDir,
-        [Parameter(Mandatory = $true)]
-        [version]$ReleaseVersion,
-        [Parameter(Mandatory = $true)]
+        [version]$Version,
         [string]$Message,
-        [string]$UpdateSource,
-        [string]$IconPath
+        [string]$UpdateSource
     )
 
     $publishDir = Join-Path $repoRoot "artifacts\publish\$Name"
-    $projectFullPath = Join-Path $repoRoot $ProjectPath
-    $fileVersion = Convert-ToFileVersion $ReleaseVersion
+    $project = Join-Path $repoRoot $ProjectPath
+
+    Write-Host "[PACK] $Name -> $ReleaseDir"
 
     if (Test-Path $publishDir) {
-        Remove-Item -LiteralPath $publishDir -Recurse -Force
+        Remove-Item $publishDir -Recurse -Force
     }
 
-    New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
-    New-Item -ItemType Directory -Path $ReleaseDir -Force | Out-Null
+    New-Item $publishDir -ItemType Directory -Force | Out-Null
+    New-Item $ReleaseDir -ItemType Directory -Force | Out-Null
 
-    Write-Host "Publishing $Name $ReleaseVersion..."
-    dotnet publish $projectFullPath `
-        -c $Configuration `
-        -r $Runtime `
+    dotnet publish $project `
+        -c Release `
+        -r win-x64 `
         --self-contained true `
         -o $publishDir `
-        -p:Version=$ReleaseVersion `
-        -p:AssemblyVersion=$fileVersion `
-        -p:FileVersion=$fileVersion `
-        -p:InformationalVersion=$ReleaseVersion `
+        -p:Version=$Version `
         -p:DemoMessage=$Message `
         -p:DemoUpdateSource=$UpdateSource
 
-    $packArgs = @(
-        "pack",
-        "--packId", $PackId,
-        "--packVersion", $ReleaseVersion.ToString(),
-        "--packDir", $publishDir,
-        "--mainExe", $MainExe,
-        "--outputDir", $ReleaseDir,
-        "--runtime", $Runtime,
-        "--packTitle", $PackTitle
-    )
-
-    if ($IconPath) {
-        $packArgs += @("--icon", (Join-Path $repoRoot $IconPath))
-    }
-
-    if ($ReleaseNotes) {
-        $releaseNotesPath = if ([System.IO.Path]::IsPathRooted($ReleaseNotes)) {
-            $ReleaseNotes
-        } else {
-            Join-Path $repoRoot $ReleaseNotes
-        }
-
-        $packArgs += @("--releaseNotes", $releaseNotesPath)
-    }
-
-    Write-Host "Packing $Name to $ReleaseDir..."
-    & vpk @packArgs
+    & vpk pack `
+        --packId $PackId `
+        --packVersion $Version `
+        --packDir $publishDir `
+        --mainExe $MainExe `
+        --outputDir $ReleaseDir `
+        --runtime win-x64
 }
 
-Assert-CommandExists "dotnet" "Install the .NET SDK."
-Assert-CommandExists "vpk" "Install Velopack CLI with: dotnet tool install -g vpk"
+# -----------------------------
+# START
+# -----------------------------
+Write-Section "BUILD START"
 
-$releaseVersion = Get-NextVersion
+$version = Get-NextVersion
+$paths = Resolve-Paths -Mode $Mode
 
 if (-not $DemoMessage) {
-    $DemoMessage = "Demo release $releaseVersion is now installed."
+    $DemoMessage = "Demo $version"
 }
+
+Write-Host "[VERSION] $version"
+Write-Host "[MODE] $Mode"
+Write-Host "[AVALONIA] $($paths.Avalonia)"
+Write-Host "[WINDOWS] $($paths.Windows)"
+
+# -----------------------------
+# RELEASE NOTES
+# -----------------------------
+$notesDir = Join-Path $repoRoot "artifacts\release-notes"
+New-Item $notesDir -ItemType Directory -Force | Out-Null
+
+$notesFile = Join-Path $notesDir "latest.md"
 
 if (-not $ReleaseNotes) {
-    $ReleaseNotes = New-DefaultReleaseNotes -ReleaseVersion $releaseVersion -Message $DemoMessage
+    $ReleaseNotes = $notesFile
+    @"
+# Release $version
+- $DemoMessage
+"@ | Set-Content $notesFile -Encoding UTF8
 }
 
+# -----------------------------
+# BUILD
+# -----------------------------
 Publish-And-Pack `
-    -Name "DemoApp.Aval" `
+    -Name "Avalonia" `
     -ProjectPath "DemoApp.Aval\DemoApp.Aval.csproj" `
     -PackId "DemoApp.Aval" `
-    -PackTitle "DemoApp Avalonia" `
     -MainExe "DemoApp.Aval.exe" `
-    -ReleaseDir $AvaloniaReleaseDir `
-    -ReleaseVersion $releaseVersion `
+    -ReleaseDir $paths.Avalonia `
+    -Version $version `
     -Message $DemoMessage `
-    -UpdateSource $AvaloniaUpdateSource `
-    -IconPath "DemoApp.Aval\Assets\avalonia-logo.ico"
+    -UpdateSource $AvaloniaUpdateSource
 
 Publish-And-Pack `
-    -Name "DemoApp.Windows" `
+    -Name "Windows" `
     -ProjectPath "DemoApp.Windows\DemoApp.Windows.csproj" `
     -PackId "DemoApp.Windows" `
-    -PackTitle "DemoApp Windows" `
     -MainExe "DemoApp.Windows.exe" `
-    -ReleaseDir $WindowsReleaseDir `
-    -ReleaseVersion $releaseVersion `
+    -ReleaseDir $paths.Windows `
+    -Version $version `
     -Message $DemoMessage `
-    -UpdateSource $WindowsUpdateSource `
-    -IconPath "DemoApp.Windows\wpfui-icon.ico"
+    -UpdateSource $WindowsUpdateSource
 
-Save-Version $releaseVersion
+Save-Version $version
 
-Write-Host ""
-Write-Host "Created release $releaseVersion"
-Write-Host "Demo message:      $DemoMessage"
-Write-Host "Avalonia releases: $AvaloniaReleaseDir"
-Write-Host "Windows releases:  $WindowsReleaseDir"
+Write-Section "BUILD DONE"
+Write-Host "Version: $version"

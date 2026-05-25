@@ -6,63 +6,57 @@
         MinWidth="720"
         MinHeight="560"
         Title="Demo Release Control">
+
     <Grid RowDefinitions="Auto,*,Auto"
           Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+
+        <!-- HEADER -->
         <StackPanel Margin="28,24,28,18"
                     Spacing="8">
             <TextBlock Text="Demo Release Control"
                        FontSize="28"
                        FontWeight="SemiBold"/>
-            <TextBlock Text="Create an app update with a visible Home-page message and release notes."
+
+            <TextBlock Text="Local Velopack build tool (no CI / no feeds)"
                        TextWrapping="Wrap"/>
         </StackPanel>
 
+        <!-- MAIN -->
         <Grid Grid.Row="1"
               Margin="28,0,28,20"
               RowDefinitions="Auto,*"
               RowSpacing="14">
+
             <StackPanel Spacing="14">
+
                 <TextBlock Text="Home-page message"
                            FontWeight="SemiBold"/>
+
                 <TextBox x:Name="DemoMessageBox"
                          TextWrapping="Wrap"
                          AcceptsReturn="True"
                          MinHeight="72"
-                         MaxHeight="96"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                         MaxHeight="96"/>
 
                 <TextBlock Text="Release notes"
                            FontWeight="SemiBold"
                            Margin="0,6,0,0"/>
+
                 <TextBox x:Name="ReleaseNotesBox"
                          TextWrapping="Wrap"
                          AcceptsReturn="True"
                          MinHeight="112"
-                         MaxHeight="140"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                         MaxHeight="140"/>
 
-                <Grid ColumnDefinitions="*,*"
-                      ColumnSpacing="12">
-                    <StackPanel>
-                        <TextBlock Text="Avalonia feed"
-                                   FontWeight="SemiBold"/>
-                        <TextBox x:Name="AvaloniaFeedBox"
-                                 Margin="0,6,0,0"/>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="Windows feed"
-                                   FontWeight="SemiBold"/>
-                        <TextBox x:Name="WindowsFeedBox"
-                                 Margin="0,6,0,0"/>
-                    </StackPanel>
-                </Grid>
             </StackPanel>
 
+            <!-- LOG -->
             <Grid Grid.Row="1"
                   RowDefinitions="Auto,*">
+
                 <TextBlock Text="Build log"
                            FontWeight="SemiBold"/>
+
                 <TextBox x:Name="OutputBox"
                          Grid.Row="1"
                          Margin="0,8,0,0"
@@ -72,26 +66,33 @@
                          TextWrapping="Wrap"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"/>
             </Grid>
+
         </Grid>
 
+        <!-- FOOTER -->
         <Border Grid.Row="2"
-                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="28,16">
+
             <DockPanel>
+
                 <TextBlock x:Name="StatusText"
                            VerticalAlignment="Center"
                            Text="Ready"/>
+
                 <StackPanel DockPanel.Dock="Right"
                             Orientation="Horizontal"
                             Spacing="10">
+
                     <Button x:Name="OpenFolderButton"
-                            Content="Open feeds"
+                            Content="Open local builds"
                             Click="OpenFolderButton_Click"/>
+
                     <Button x:Name="BuildButton"
-                            Content="Build demo update"
+                            Content="Build update"
                             Click="BuildButton_Click"/>
                 </StackPanel>
+
             </DockPanel>
         </Border>
     </Grid>
