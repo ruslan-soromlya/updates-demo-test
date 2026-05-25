@@ -1,4 +1,4 @@
-\[CmdletBinding()]
+[CmdletBinding()]
 param(
     [ValidateSet("CI", "Local")]
     [string]$Mode = "CI",
