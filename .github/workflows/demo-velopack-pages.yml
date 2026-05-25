@@ -195,7 +195,7 @@ jobs:
         run: |
           vpk upload github `
             --merge `
-            --repoUrl $REPO_URL \
+            --repoUrl $REPO_URL `
             --token ${{ secrets.GITHUB_TOKEN }} `
             --outputDir releases/wpf-windows `
             --channel windows `
