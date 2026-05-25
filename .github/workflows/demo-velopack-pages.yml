@@ -46,7 +46,6 @@ jobs:
   build:
     needs: setup
     runs-on: windows-latest
-    name: ${{ matrix.app.displayName }}
 
     strategy:
       matrix:
@@ -100,6 +99,14 @@ jobs:
         run: |
           "${{ inputs.update_notes }}" | Out-File -FilePath release-notes.md -Encoding utf8
 
+      # ───────────────────────── DEBUG BEFORE DOWNLOAD ─────────────────────────
+      - name: DEBUG - BEFORE DOWNLOAD (workspace state)
+        shell: pwsh
+        run: |
+          Write-Host "=== BEFORE DOWNLOAD ==="
+          Get-Location
+          Get-ChildItem -Recurse
+
       - name: Download previous release
         shell: pwsh
         run: |
@@ -109,6 +116,14 @@ jobs:
             --channel ${{ matrix.app.channel }} `
             --outputDir releases/${{ matrix.app.artifact }}
         continue-on-error: true
+
+      # ───────────────────────── DEBUG AFTER DOWNLOAD ─────────────────────────
+      - name: DEBUG - AFTER DOWNLOAD
+        shell: pwsh
+        run: |
+          Write-Host "=== AFTER DOWNLOAD ==="
+          Write-Host "TARGET:"
+          Get-ChildItem -Recurse releases
 
       - name: Publish
         shell: pwsh
@@ -122,6 +137,18 @@ jobs:
             -p:Version=$env:VERSION `
             -p:DemoMessage="$msg" `
             -p:DemoUpdateSource="https://github.com/${{ github.repository }}/releases/download/v$env:VERSION/"
+
+      # ───────────────────────── DEBUG BEFORE PACK ─────────────────────────
+      - name: DEBUG - BEFORE PACK
+        shell: pwsh
+        run: |
+          Write-Host "=== BEFORE PACK ==="
+
+          Write-Host "publish folder:"
+          Get-ChildItem publish -Recurse -ErrorAction SilentlyContinue
+
+          Write-Host "releases folder:"
+          Get-ChildItem releases -Recurse -ErrorAction SilentlyContinue
 
       - name: Pack
         shell: pwsh
@@ -137,6 +164,37 @@ jobs:
             --runtime "${{ matrix.app.rid }}" `
             --channel ${{ matrix.app.channel }} `
             --releaseNotes release-notes.md
+
+      # ───────────────────────── DEBUG AFTER PACK ─────────────────────────
+      - name: DEBUG - AFTER PACK (CRITICAL)
+        shell: pwsh
+        run: |
+          Write-Host "=== AFTER PACK ==="
+
+          Write-Host "FULL RELEASES TREE:"
+          Get-ChildItem releases -Recurse -Force
+
+          Write-Host "EXPECTED OUTPUT FOLDER:"
+          $target = "releases/${{ matrix.app.artifact }}"
+
+          if (Test-Path $target) {
+            Write-Host "✔ EXISTS: $target"
+            Get-ChildItem $target -Recurse -Force
+          } else {
+            Write-Host "❌ MISSING: $target"
+          }
+
+      # ───────────────────────── DEBUG GLOBAL SEARCH ─────────────────────────
+      - name: DEBUG - FIND ALL OUTPUTS ANYWHERE
+        shell: pwsh
+        run: |
+          Write-Host "=== SEARCHING FOR VELPACK OUTPUT ==="
+
+          Get-ChildItem -Path . -Recurse -Force |
+            Where-Object {
+              $_.Name -match "releases|.nupkg|.AppImage|setup|delta|full|velopack"
+            } |
+            Select FullName
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -165,41 +223,47 @@ jobs:
           dotnet tool install -g vpk
           echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
+      # ───────────────────────── DEBUG BEFORE UPLOAD ─────────────────────────
+      - name: DEBUG - BEFORE UPLOAD
+        run: |
+          echo "=== RELEASES TREE ==="
+          find releases -type f || true
+
       - name: Upload Avalonia Windows
         run: |
-          vpk upload github \
-            --merge \
-            --repoUrl "$REPO_URL" \
-            --token "${{ secrets.GITHUB_TOKEN }}" \
-            --outputDir "releases/avalonia-windows" \
-            --channel "windows" \
-            --publish \
-            --releaseName "v$VERSION" \
-            --tag "v$VERSION" \
-            --targetCommitish "${{ github.sha }}"
+          vpk upload github `
+            --merge `
+            --repoUrl $REPO_URL `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --outputDir releases/avalonia-windows `
+            --channel windows `
+            --publish `
+            --releaseName "v$VERSION" `
+            --tag v$VERSION `
+            --targetCommitish ${{ github.sha }}
 
       - name: Upload Avalonia Linux
         run: |
-          vpk upload github \
-            --merge \
-            --repoUrl "$REPO_URL" \
-            --token "${{ secrets.GITHUB_TOKEN }}" \
-            --outputDir "releases/avalonia-linux" \
-            --channel "linux" \
-            --publish \
-            --releaseName "v$VERSION" \
-            --tag "v$VERSION" \
-            --targetCommitish "${{ github.sha }}"
+          vpk upload github `
+            --merge `
+            --repoUrl $REPO_URL `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --outputDir releases/avalonia-linux `
+            --channel linux `
+            --publish `
+            --releaseName "v$VERSION" `
+            --tag v$VERSION `
+            --targetCommitish ${{ github.sha }}
 
-      - name: Upload WPF Windows
+      - name: Upload WPF
         run: |
-          vpk upload github \
-            --merge \
-            --repoUrl "$REPO_URL" \
-            --token "${{ secrets.GITHUB_TOKEN }}" \
-            --outputDir "releases/wpf-windows" \
-            --channel "windows" \
-            --publish \
-            --releaseName "v$VERSION" \
-            --tag "v$VERSION" \
-            --targetCommitish "${{ github.sha }}"
+          vpk upload github `
+            --merge `
+            --repoUrl $REPO_URL `
+            --token ${{ secrets.GITHUB_TOKEN }} `
+            --outputDir releases/wpf-windows `
+            --channel windows `
+            --publish `
+            --releaseName "v$VERSION" `
+            --tag v$VERSION `
+            --targetCommitish ${{ github.sha }}
