@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DemoApp — Download</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #fafafa;
+  --bg2: #f4f4f4;
+  --surface: #ffffff;
+  --border: #e2e2e2;
+  --border2: #d0d0d0;
+  --text: #111111;
+  --sub: #555555;
+  --muted: #999999;
+  --accent: #0057ff;
+  --accent-hover: #0044cc;
+  --accent-surface: #eff4ff;
+  --win-color: #0057ff;
+  --lnx-color: #1a7a4a;
+  --success: #1a7a4a;
+  --font: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'Geist Mono', monospace;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+
+html { font-size: 14px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-weight: 400;
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  background: var(--text);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand-mark svg { width: 14px; height: 14px; }
+
+.brand-name {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.brand-sep {
+  color: var(--border2);
+  margin: 0 2px;
+}
+
+.brand-product {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--sub);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.topbar-link {
+  font-size: 13px;
+  color: var(--sub);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+.topbar-link:hover { color: var(--text); }
+
+/* ── MAIN ── */
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 64px 24px 80px;
+}
+
+.container {
+  width: 100%;
+  max-width: 720px;
+}
+
+/* ── HERO ── */
+.hero {
+  margin-bottom: 48px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: pulse 2.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(26,122,74,0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(26,122,74,0); }
+}
+
+.status-text {
+  font-size: 12px;
+  color: var(--success);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.version-badge {
+  margin-left: 4px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--sub);
+  letter-spacing: 0.04em;
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.hero-sub {
+  font-size: 15px;
+  color: var(--sub);
+  line-height: 1.6;
+  max-width: 480px;
+}
+
+/* ── MESSAGE CARD ── */
+.message-card {
+  background: var(--accent-surface);
+  border: 1px solid rgba(0,87,255,0.15);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 32px;
+  display: none;
+}
+.message-card.visible { display: flex; gap: 12px; align-items: flex-start; }
+
+.message-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--accent);
+}
+
+.message-inner {}
+.message-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 3px;
+}
+.message-text {
+  font-size: 13px;
+  color: #1a2e5a;
+  line-height: 1.6;
+}
+
+/* ── SECTION LABEL ── */
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* ── DOWNLOAD TABLE ── */
+.dl-table {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.dl-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 0 20px;
+  height: 60px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  text-decoration: none;
+  color: var(--text);
+  transition: background 0.1s;
+}
+.dl-row:last-child { border-bottom: none; }
+.dl-row:not(.disabled):hover { background: var(--bg); }
+.dl-row.disabled { opacity: 0.45; cursor: default; pointer-events: none; }
+
+.dl-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.dl-platform-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.dl-platform-icon.win {
+  background: #eff4ff;
+  border: 1px solid rgba(0,87,255,0.12);
+}
+.dl-platform-icon.lnx {
+  background: #edf7f1;
+  border: 1px solid rgba(26,122,74,0.15);
+}
+.dl-platform-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.dl-info {}
+.dl-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 1px;
+}
+.dl-meta {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.dl-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.platform-tag {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+.platform-tag.win {
+  background: #eff4ff;
+  color: var(--win-color);
+}
+.platform-tag.lnx {
+  background: #edf7f1;
+  color: var(--lnx-color);
+}
+
+.dl-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--text);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s, opacity 0.12s;
+  white-space: nowrap;
+}
+.dl-btn:hover { background: #333; }
+.dl-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+.dl-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.dl-hint svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+/* ── RELEASE NOTES ── */
+.notes-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+
+.notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+.notes-header:hover { background: var(--bg); }
+
+.notes-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.notes-header-left svg { width: 15px; height: 15px; color: var(--muted); }
+
+.notes-chevron {
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+.notes-chevron.open { transform: rotate(180deg); }
+.notes-chevron svg { width: 15px; height: 15px; display: block; }
+
+.notes-content {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--sub);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  background: var(--bg);
+}
+.notes-content.open { display: block; }
+
+/* ── FOOTER ── */
+footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 0 40px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.footer-text {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.footer-link {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+.footer-link:hover { color: var(--sub); }
+
+/* ── SKELETON ── */
+.skel {
+  background: linear-gradient(90deg, var(--bg2) 25%, #ececec 50%, var(--bg2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 3px;
+  display: inline-block;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.error-banner {
+  background: #fff5f5;
+  border: 1px solid #fcc;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #c00;
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="5" height="5" rx="1" fill="white"/>
+        <rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/>
+        <rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/>
+        <rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/>
+      </svg>
+    </div>
+    <span class="brand-name">Acme Corp</span>
+    <span class="brand-sep">/</span>
+    <span class="brand-product">DemoApp</span>
+  </div>
+  <nav class="topbar-right">
+    <a class="topbar-link" id="nav-gh" href="https://github.com/ruslan-soromlya/updates-demo-test" target="_blank">GitHub</a>
+    <a class="topbar-link" href="https://velopack.io" target="_blank">Velopack</a>
+  </nav>
+</header>
+
+<!-- MAIN -->
+<main>
+  <div class="container">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="status-row">
+        <div class="status-dot"></div>
+        <span class="status-text">Latest release</span>
+        <span class="version-badge" id="version-badge">
+          <span class="skel" style="width:52px;height:10px;vertical-align:middle"></span>
+        </span>
+        <span class="version-badge" id="date-badge" style="display:none"></span>
+      </div>
+      <h1>Download DemoApp</h1>
+      <p class="hero-sub">Select your platform below to download the installer. Updates are delivered automatically once installed.</p>
+    </div>
+
+    <!-- MESSAGE -->
+    <div class="message-card" id="message-card">
+      <svg class="message-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10" cy="10" r="8.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 9v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="10" cy="6.5" r="0.75" fill="currentColor"/>
+      </svg>
+      <div class="message-inner">
+        <div class="message-label">Release message</div>
+        <div class="message-text" id="message-text"></div>
+      </div>
+    </div>
+
+    <!-- DOWNLOADS -->
+    <div class="section-label">Platform installers</div>
+    <div class="dl-table" id="dl-table">
+
+      <!-- skeleton rows -->
+      <div class="dl-row disabled">
+        <div class="dl-left">
+          <div class="dl-platform-icon win">
+            <svg viewBox="0 0 16 16" fill="#0057ff" xmlns="http://www.w3.org/2000/svg"><path d="M0 2.4L6.5 1.5V7.5H0V2.4ZM7.5 1.35L16 0V7.5H7.5V1.35ZM0 8.5H6.5V14.5L0 13.6V8.5ZM7.5 8.5H16V16L7.5 14.65V8.5Z"/></svg>
+          </div>
+          <div class="dl-info">
+            <div class="dl-name"><span class="skel" style="width:130px;height:12px"></span></div>
+            <div class="dl-meta"><span class="skel" style="width:90px;height:10px;margin-top:3px"></span></div>
+          </div>
+        </div>
+        <div class="dl-action">
+          <span class="platform-tag win">Windows x64</span>
+          <span class="dl-btn" style="opacity:0.4">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download
+          </span>
+        </div>
+      </div>
+
+      <div class="dl-row disabled">
+        <div class="dl-left">
+          <div class="dl-platform-icon win">
+            <svg viewBox="0 0 16 16" fill="#0057ff" xmlns="http://www.w3.org/2000/svg"><path d="M0 2.4L6.5 1.5V7.5H0V2.4ZM7.5 1.35L16 0V7.5H7.5V1.35ZM0 8.5H6.5V14.5L0 13.6V8.5ZM7.5 8.5H16V16L7.5 14.65V8.5Z"/></svg>
+          </div>
+          <div class="dl-info">
+            <div class="dl-name"><span class="skel" style="width:110px;height:12px"></span></div>
+            <div class="dl-meta"><span class="skel" style="width:90px;height:10px;margin-top:3px"></span></div>
+          </div>
+        </div>
+        <div class="dl-action">
+          <span class="platform-tag win">Windows x64</span>
+          <span class="dl-btn" style="opacity:0.4">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download
+          </span>
+        </div>
+      </div>
+
+      <div class="dl-row disabled">
+        <div class="dl-left">
+          <div class="dl-platform-icon lnx">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1C5.5 1 4 3 4 5c0 1.5.5 2.5 1 3.5.3.6.5 1.2.5 2v.5h5V10.5c0-.8.2-1.4.5-2C11.5 7.5 12 6.5 12 5c0-2-1.5-4-4-4Z" stroke="#1a7a4a" stroke-width="1.3"/><path d="M6 11.5V13a1 1 0 001 1h2a1 1 0 001-1v-1.5" stroke="#1a7a4a" stroke-width="1.3"/><path d="M6.5 9h3" stroke="#1a7a4a" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </div>
+          <div class="dl-info">
+            <div class="dl-name"><span class="skel" style="width:120px;height:12px"></span></div>
+            <div class="dl-meta"><span class="skel" style="width:90px;height:10px;margin-top:3px"></span></div>
+          </div>
+        </div>
+        <div class="dl-action">
+          <span class="platform-tag lnx">Linux x64</span>
+          <span class="dl-btn" style="opacity:0.4;background:#1a7a4a">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download
+          </span>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="dl-hint">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.5V11M8 5.5v.5" stroke-linecap="round"/></svg>
+      The installer handles all future updates automatically via Velopack.
+    </p>
+
+    <!-- RELEASE NOTES -->
+    <div class="notes-wrap" id="notes-wrap" style="display:none">
+      <div class="notes-header" onclick="toggleNotes()">
+        <div class="notes-header-left">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" xmlns="http://www.w3.org/2000/svg"><path d="M2 4h12M2 8h8M2 12h10" stroke-linecap="round"/></svg>
+          Release notes
+        </div>
+        <div class="notes-chevron" id="notes-chevron">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg"><path d="M4 6l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+      <div class="notes-content" id="notes-content"></div>
+    </div>
+
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">
+    <span class="footer-text">© 2025 Acme Corp. All rights reserved.</span>
+    <a class="footer-link" id="footer-gh" href="#" target="_blank">View release on GitHub ↗</a>
+  </div>
+  <span class="footer-text">Powered by <a class="footer-link" href="https://velopack.io" target="_blank">Velopack</a></span>
+</footer>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+const REPO = 'ruslan-soromlya/updates-demo-test'; // e.g. 'acme/demoapp'
+// ────────────────────────────────────────────────────────
+
+const WIN_ICON = `<svg viewBox="0 0 16 16" fill="#0057ff" xmlns="http://www.w3.org/2000/svg"><path d="M0 2.4L6.5 1.5V7.5H0V2.4ZM7.5 1.35L16 0V7.5H7.5V1.35ZM0 8.5H6.5V14.5L0 13.6V8.5ZM7.5 8.5H16V16L7.5 14.65V8.5Z"/></svg>`;
+const LNX_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1C5.5 1 4 3 4 5c0 1.5.5 2.5 1 3.5.3.6.5 1.2.5 2v.5h5V10.5c0-.8.2-1.4.5-2C11.5 7.5 12 6.5 12 5c0-2-1.5-4-4-4Z" stroke="#1a7a4a" stroke-width="1.3"/><path d="M6 11.5V13a1 1 0 001 1h2a1 1 0 001-1v-1.5" stroke="#1a7a4a" stroke-width="1.3"/><path d="M6.5 9h3" stroke="#1a7a4a" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+const DL_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+const TARGETS = [
+  { label: 'Avalonia UI',  sub: 'Cross-platform · Avalonia',  platform: 'win', tag: 'Windows x64', setup: 'avalonia-win-x64-Setup.exe',          btnBg: '' },
+  { label: 'WPF',          sub: 'Windows Presentation Foundation', platform: 'win', tag: 'Windows x64', setup: 'wpf-win-x64-Setup.exe',           btnBg: '' },
+  { label: 'Avalonia UI',  sub: 'Cross-platform · Avalonia',  platform: 'lnx', tag: 'Linux x64',   setup: 'avalonia-linux-x64-Setup.AppImage',    btnBg: '#1a7a4a' },
+];
+
+function fmtSize(bytes) {
+  if (!bytes) return '';
+  return bytes >= 1048576
+    ? (bytes / 1048576).toFixed(1) + ' MB'
+    : (bytes / 1024).toFixed(0) + ' KB';
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+async function load() {
+  let release;
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
+    if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
+    release = await res.json();
+  } catch (e) {
+    document.getElementById('version-badge').textContent = 'unavailable';
+    document.getElementById('dl-table').innerHTML = `<div style="padding:20px"><div class="error-banner">Could not load release: ${e.message}</div></div>`;
+    return;
+  }
+
+  // version + date
+  document.getElementById('version-badge').textContent = release.tag_name;
+  const dateEl = document.getElementById('date-badge');
+  dateEl.textContent = fmtDate(release.published_at);
+  dateEl.style.display = '';
+
+  // gh links
+  document.getElementById('nav-gh').href = `https://github.com/${REPO}`;
+  document.getElementById('footer-gh').href = release.html_url;
+
+  // message
+  const body = release.body || '';
+  const msgMatch = body.match(/^MSG:\s*(.+)/m);
+  if (msgMatch) {
+    document.getElementById('message-text').textContent = msgMatch[1].trim();
+    document.getElementById('message-card').classList.add('visible');
+  }
+
+  // release notes
+  const notes = body.replace(/^MSG:.*\n?/m, '').trim();
+  if (notes) {
+    document.getElementById('notes-content').textContent = notes;
+    document.getElementById('notes-wrap').style.display = '';
+  }
+
+  // build rows
+  const assets = release.assets || [];
+  const table = document.getElementById('dl-table');
+  table.innerHTML = '';
+
+  TARGETS.forEach(t => {
+    const asset = assets.find(a => a.name === t.setup);
+    const url = asset ? asset.browser_download_url : null;
+    const size = asset ? fmtSize(asset.size) : null;
+    const icon = t.platform === 'win' ? WIN_ICON : LNX_ICON;
+    const btnStyle = t.btnBg ? `style="background:${t.btnBg}"` : '';
+
+    const row = document.createElement(url ? 'a' : 'div');
+    row.className = 'dl-row' + (url ? '' : ' disabled');
+    if (url) { row.href = url; row.target = '_blank'; }
+
+    row.innerHTML = `
+      <div class="dl-left">
+        <div class="dl-platform-icon ${t.platform}">${icon}</div>
+        <div class="dl-info">
+          <div class="dl-name">${t.label}</div>
+          <div class="dl-meta">${t.sub}${size ? ' · ' + size : url === null ? ' · not in this release' : ''}</div>
+        </div>
+      </div>
+      <div class="dl-action">
+        <span class="platform-tag ${t.platform}">${t.tag}</span>
+        <span class="dl-btn" ${btnStyle}>${DL_ICON} ${url ? 'Download' : 'Unavailable'}</span>
+      </div>
+    `;
+    table.appendChild(row);
+  });
+}
+
+function toggleNotes() {
+  document.getElementById('notes-content').classList.toggle('open');
+  document.getElementById('notes-chevron').classList.toggle('open');
+}
+
+load();
+</script>
+</body>
+</html>

@@ -156,7 +156,9 @@ jobs:
           vpk upload github \
             --repoUrl $REPO_URL \
             --token ${{ secrets.GITHUB_TOKEN }} \
-            --inputDir releases \
+            --outputDir releases \
             --publish \
+            --merge \
             --releaseName "v$VERSION" \
-            --tag v$VERSION
+            --tag v$VERSION \
+            --targetCommitish ${{ github.sha }}
